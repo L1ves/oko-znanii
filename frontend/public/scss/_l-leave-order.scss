@@ -1,0 +1,128 @@
+.leave-order {
+  &__title {
+    margin: 0 0 30px;
+    font-family: 'Alegreya', sans-serif;
+    font-weight: 800;
+    font-size: 48px;
+    text-align: center;
+    color: #9b4aff;
+
+    @include laptop {
+      font-size: 40px;
+      text-align: center;
+    }
+
+    @include mobile {
+      font-size: 32px;
+    }
+  }
+
+  &__steps {
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 102px;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      display: block;
+      width: 100%;
+      height: 10px;
+      border-radius: 90px;
+      background: linear-gradient(147deg, #2c98f0 0%, #b9e0ff 100%);
+
+      @include laptop {
+        top: 0;
+        left: 50%;
+        right: auto;
+        bottom: 0;
+        width: 10px;
+        height: auto;
+        opacity: 0.25;
+        transform: translateX(-50%);
+      }
+    }
+
+    &-wrapper {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 30px;
+      max-width: 1064px;
+      width: 100%;
+      margin: 0 auto;
+
+      @include laptop {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 0;
+      }
+    }
+
+    &-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 0 1 300px;
+
+      @include laptop {
+        flex: 0 1 auto;
+        max-width: 400px;
+      }
+
+      &-title {
+        margin: 0 0 15px;
+        font-family: 'Jost', sans-serif;
+        font-weight: 600;
+        font-size: 24px;
+        text-align: center;
+        color: #282828;
+      }
+
+      &-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 114px;
+        margin: 0 0 15px;
+        padding: 24px;
+        aspect-ratio: 1;
+        box-sizing: border-box;
+        border-radius: 100px;
+        background-color: #fff;
+        box-shadow: 0 8px 19px 0 rgba(0, 0, 0, 0.1);
+
+        &-image {
+          display: block;
+          max-width: 100%;
+          height: auto;
+        }
+      }
+
+      &-text {
+        font-family: 'Jost', sans-serif;
+        font-weight: 400;
+        font-size: 20px;
+        text-align: center;
+        color: #000;
+      }
+    }
+  }
+
+  &__order {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 50px 0 0;
+
+    &-button {
+      max-width: 277px;
+      width: 100%;
+    }
+  }
+}

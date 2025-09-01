@@ -1,0 +1,221 @@
+from django.shortcuts import render
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from .models import Order, Transaction, Dispute, OrderFile, OrderComment
+from .serializers import OrderSerializer, TransactionSerializer, DisputeSerializer, OrderFileSerializer, OrderCommentSerializer
+from apps.notifications.services import NotificationService
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.http import FileResponse
+import mimetypes
+from .services import DiscountService
+from .models import DiscountRule
+
+# Create your views here.
+
+class OrderViewSet(viewsets.ModelViewSet):
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return self.queryset
+        return self.queryset.filter(
+            models.Q(client=user) | models.Q(expert=user)
+        )
+
+    def perform_create(self, serializer):
+        order = serializer.save()
+        # Автоматически применяем лучшую доступную скидку
+        DiscountService.apply_best_discount(order)
+
+    @action(detail=True, methods=['post'])
+    def apply_discount(self, request, pk=None):
+        """
+        Применить конкретную скидку к заказу
+        """
+        order = self.get_object()
+        discount_id = request.data.get('discount_id')
+
+        if not discount_id:
+            return Response(
+                {'error': 'Не указан ID скидки'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            discount = DiscountRule.objects.get(id=discount_id)
+        except DiscountRule.DoesNotExist:
+            return Response(
+                {'error': 'Скидка не найдена'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if order.apply_discount(discount):
+            return Response(OrderSerializer(order).data)
+        return Response(
+            {'error': 'Невозможно применить скидку'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    @action(detail=True, methods=['post'])
+    def remove_discount(self, request, pk=None):
+        """
+        Удалить скидку с заказа
+        """
+        order = self.get_object()
+        order.remove_discount()
+        return Response(OrderSerializer(order).data)
+
+    @action(detail=True, methods=['post'])
+    def take_order(self, request, pk=None):
+        order = self.get_object()
+        if order.status != 'new':
+            return Response(
+                {'detail': 'Заказ уже взят в работу'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        if request.user.role != 'expert':
+            return Response(
+                {'detail': 'Только эксперты могут брать заказы'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        old_status = order.status
+        order.expert = request.user
+        order.status = 'in_progress'
+        order.save()
+        
+        NotificationService.notify_order_taken(order)
+        NotificationService.notify_status_changed(order, old_status)
+        
+        return Response(OrderSerializer(order).data)
+
+    @action(detail=True, methods=['post'])
+    def complete_order(self, request, pk=None):
+        order = self.get_object()
+        if order.expert != request.user:
+            return Response(
+                {'detail': 'Только назначенный эксперт может завершить заказ'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        if order.status not in ['in_progress', 'revision']:
+            return Response(
+                {'detail': 'Неверный статус заказа'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        old_status = order.status
+        order.status = 'completed'
+        order.save()
+        
+        NotificationService.notify_status_changed(order, old_status)
+        
+        return Response(OrderSerializer(order).data)
+
+class TransactionViewSet(viewsets.ModelViewSet):
+    queryset = Transaction.objects.all()
+    serializer_class = TransactionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return Transaction.objects.all()
+        return Transaction.objects.filter(user=user)
+
+class DisputeViewSet(viewsets.ModelViewSet):
+    queryset = Dispute.objects.all()
+    serializer_class = DisputeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_staff:
+            return Dispute.objects.all()
+        return Dispute.objects.filter(order__client=user)
+
+    @action(detail=True, methods=['post'])
+    def resolve(self, request, pk=None):
+        dispute = self.get_object()
+        if not request.user.is_staff:
+            return Response(
+                {"error": "Only staff can resolve disputes"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        dispute.resolved = True
+        dispute.arbitrator = request.user
+        dispute.result = request.data.get('result', '')
+        dispute.save()
+        
+        return Response(DisputeSerializer(dispute).data)
+
+class OrderFileViewSet(viewsets.ModelViewSet):
+    serializer_class = OrderFileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser)
+
+    def get_queryset(self):
+        return OrderFile.objects.filter(
+            order_id=self.kwargs['order_pk']
+        ).select_related('order', 'uploaded_by')
+
+    def perform_create(self, serializer):
+        order = Order.objects.get(id=self.kwargs['order_pk'])
+        if not (self.request.user == order.client or self.request.user == order.expert):
+            raise permissions.PermissionDenied(
+                'Только клиент и эксперт могут добавлять файлы'
+            )
+        order_file = serializer.save(
+            order_id=self.kwargs['order_pk'],
+            uploaded_by=self.request.user
+        )
+        NotificationService.notify_file_uploaded(order_file)
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    @action(detail=True, methods=['get'])
+    def download(self, request, order_pk=None, pk=None):
+        order_file = self.get_object()
+        file_handle = order_file.file.open()
+        
+        # Получаем MIME-тип файла
+        content_type, _ = mimetypes.guess_type(order_file.file.name)
+        if not content_type:
+            content_type = 'application/octet-stream'
+            
+        # Создаем HTTP-ответ с файлом
+        response = FileResponse(file_handle, content_type=content_type)
+        response['Content-Length'] = order_file.file.size
+        response['Content-Disposition'] = f'attachment; filename="{order_file.filename()}"'
+        
+        return response
+
+class OrderCommentViewSet(viewsets.ModelViewSet):
+    serializer_class = OrderCommentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return OrderComment.objects.filter(
+            order_id=self.kwargs['order_pk']
+        )
+
+    def perform_create(self, serializer):
+        order = Order.objects.get(id=self.kwargs['order_pk'])
+        if not (self.request.user == order.client or self.request.user == order.expert):
+            raise permissions.PermissionDenied(
+                'Только клиент и эксперт могут оставлять комментарии'
+            )
+        comment = serializer.save(
+            order_id=self.kwargs['order_pk'],
+            author=self.request.user
+        )
+        NotificationService.notify_new_comment(comment)

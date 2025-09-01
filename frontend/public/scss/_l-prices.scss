@@ -1,0 +1,240 @@
+.prices {
+  padding: 130px 0 110px;
+
+  @include laptop {
+    padding: 100px 0;
+  }
+
+  &__wrapper {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 30px;
+
+    @include laptop {
+      flex-wrap: wrap;
+    }
+  }
+
+  &__details {
+    flex: 0 1 516px;
+
+    @include laptop {
+      flex: 1 1 100%;
+    }
+
+    &-title {
+      margin: 0 0 10px;
+      font-family: 'Alegreya', sans-serif;
+      font-weight: 800;
+      font-size: 48px;
+      color: #9b4aff;
+
+      @include laptop {
+        font-size: 40px;
+      }
+
+      @include mobile {
+        font-size: 32px;
+      }
+    }
+
+    &-description {
+      font-family: 'Jost', sans-serif;
+      font-weight: 400;
+      font-size: 24px;
+      color: #282828;
+
+      @include laptop {
+        font-size: 20px;
+      }
+
+      @include mobile {
+        font-size: 16px;
+      }
+    }
+  }
+
+  &__main {
+    position: relative;
+    flex: 0 1 711px;
+
+    @include laptop {
+      flex: 1 1 100%;
+    }
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -145px;
+      left: 290px;
+      display: block;
+      width: 764px;
+      aspect-ratio: 1 / 1;
+      background: url(../assets/prices/prices-bg.png) center / cover no-repeat;
+
+      @include laptop {
+        display: none;
+      }
+    }
+
+    &-visible,
+    &-hidden {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    &-visible {
+    }
+
+    &-hidden {
+      max-height: 0px;
+      overflow: hidden;
+      transition: max-height ease-out 0.4s;
+
+      &::before {
+        content: '';
+        display: block;
+        height: 1px;
+        width: 100%;
+      }
+    }
+
+    &.active &-hidden {
+      overflow: visible;
+    }
+
+    &-card {
+      display: block;
+      flex: 1 1 100%;
+      padding: 30px;
+      box-sizing: border-box;
+      border-radius: 10px;
+      box-shadow: 0 8px 19px 0 rgba(0, 0, 0, 0.1);
+      background: #ffffff;
+
+      @include mobile {
+        padding: 20px;
+      }
+
+      &-wrapper {
+        display: flex;
+        align-items: flex-end;
+        gap: 40px;
+
+        @include mobile {
+          flex-wrap: wrap;
+          gap: 24px;
+        }
+      }
+
+      &-details {
+        flex: 1 1 auto;
+
+        @include mobile {
+          flex: 1 1 100%;
+        }
+
+        &-title {
+          margin: 0 0 12px;
+          font-family: 'Jost', sans-serif;
+          font-weight: 700;
+          font-size: 32px;
+          color: #282828;
+
+          @include mobile {
+            font-size: 28px;
+          }
+        }
+
+        &-info {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 4px 40px;
+
+          &-item {
+            font-family: 'Jost', sans-serif;
+
+            &-title {
+              font-weight: 400;
+              font-size: 20px;
+              color: #282828;
+
+              @include mobile {
+                font-size: 16px;
+              }
+            }
+
+            &-value {
+              font-weight: 700;
+              font-size: 24px;
+              color: #2c98f0;
+
+              @include mobile {
+                font-size: 20px;
+              }
+            }
+          }
+        }
+      }
+
+      &-more {
+        flex: 0 0 auto;
+
+        &-button {
+          padding: 13px 36px;
+
+          background-color: #ffb34a;
+
+          &:hover {
+            background-color: #ffc87d;
+          }
+
+          &:active {
+            background-color: #ffa831;
+          }
+        }
+      }
+    }
+
+    &-more {
+      position: absolute;
+      left: -36px;
+      right: -36px;
+      bottom: -22px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 118px 22px 22px;
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.8) 60.58%,
+        #fff 100%
+      );
+
+      &-button {
+        padding: 21px 88px;
+        color: #fff;
+        background-color: #9b4aff;
+
+        &:hover {
+          background-color: #b77dff;
+        }
+
+        &:active {
+          background-color: #8d31ff;
+        }
+      }
+    }
+
+    &.active &-more {
+      display: none;
+    }
+  }
+}

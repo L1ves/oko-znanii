@@ -1,0 +1,200 @@
+.first-screen {
+  position: relative;
+  background: linear-gradient(135deg, #238ce2 0%, #b9e0ff 100%);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    display: block;
+    height: 176px;
+    background: url(../assets/first-screen/first-screen-divider.svg) top center / cover no-repeat;
+
+    @include desktop {
+      height: 124px;
+    }
+
+    @include mobile {
+      height: 80px;
+    }
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -144px;
+    z-index: 20;
+    display: block;
+    width: 416px;
+    aspect-ratio: 416 / 540;
+    background: url(../assets/first-screen/first-screen-hat.png) top center / cover no-repeat;
+    pointer-events: none;
+
+    @include desktoplg {
+      bottom: -100px;
+      width: 320px;
+    }
+
+    @include desktop {
+      bottom: -70px;
+      width: 240px;
+    }
+
+    @include laptop {
+      display: none;
+    }
+  }
+
+  &__wrapper {
+    position: relative;
+    z-index: 10;
+    padding: 222px 0 283px;
+
+    @include desktop {
+      padding: 200px 0;
+    }
+
+    @include laptop {
+      padding: 100px 0 0;
+    }
+  }
+
+  &__content {
+    position: relative;
+    z-index: 11;
+    max-width: 650px;
+
+    @include desktop {
+      max-width: 560px;
+    }
+
+    @include laptop {
+      max-width: none;
+      margin: 0 0 20px;
+    }
+
+    &-title {
+      margin: 0 0 20px;
+      font-family: 'Alegreya', sans-serif;
+      font-weight: 800;
+      font-size: 52px;
+      color: #fff;
+
+      @include desktop {
+        font-size: 44px;
+      }
+
+      @include laptop {
+        text-align: center;
+      }
+
+      @include mobile {
+        font-size: 32px;
+      }
+    }
+
+    &-descripton {
+      margin: 0 0 60px;
+      font-family: 'Jost', sans-serif;
+      font-weight: 400;
+      font-size: 32px;
+      color: #fff;
+
+      @include laptop {
+        margin-bottom: 40px;
+        font-size: 24px;
+        text-align: center;
+      }
+
+      @include mobile {
+        margin-bottom: 20px;
+      }
+    }
+
+    &-buttons {
+      display: flex;
+      gap: 10px 20px;
+
+      @include laptop {
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      &-task,
+      &-expert {
+        min-width: 240px;
+
+        @include mobile {
+          flex: 1 1 100%;
+        }
+      }
+
+      &-task {
+        background-color: #ffb34a;
+
+        &:hover {
+          background-color: #ffc87d;
+        }
+
+        &:active {
+          background-color: #ffa831;
+        }
+      }
+
+      &-expert {
+        background-color: #a5d5fc;
+
+        &:hover {
+          background-color: #d6ecfe;
+        }
+
+        &:active {
+          background-color: #8cc9fb;
+        }
+      }
+    }
+  }
+
+  &__figure {
+    position: absolute;
+    top: 110px;
+    left: 598px;
+    right: -129px;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    margin: 0;
+    overflow: hidden;
+
+    @include desktop {
+      top: 64px;
+      left: 480px;
+    }
+
+    @include laptop {
+      position: static;
+      justify-content: center;
+    }
+
+    &-image {
+      display: block;
+      max-width: none;
+      height: 100%;
+      width: 100%;
+      aspect-ratio: 811 / 879;
+      object-fit: cover;
+
+      @include laptop {
+        max-width: 100%;
+        width: 680px;
+        height: auto;
+      }
+    }
+  }
+}

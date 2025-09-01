@@ -1,0 +1,28 @@
+.button {
+  display: inline-block;
+  flex: 0 0 auto;
+  padding: 21px 42px;
+  box-sizing: border-box;
+  font-family: 'Jost', sans-serif;
+  font-weight: 500;
+  font-size: 17px;
+  line-height: 141%;
+  text-align: center;
+  color: #282828;
+  border: none;
+  border-radius: 64px;
+  outline: none;
+  background-color: #ffb34a;
+  transition-property: color, background-color;
+  transition-timing-function: ease-out;
+  transition-duration: 0.2s;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #ffc87d;
+  }
+
+  &:active {
+    background-color: #ffa831;
+  }
+}

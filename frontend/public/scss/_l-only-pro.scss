@@ -1,0 +1,161 @@
+.only-pro {
+  position: relative;
+  z-index: 100;
+  background: linear-gradient(147deg, #9b4aff 0%, #431b73 100%);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    background: url(../assets/only-pro/only-pro-ring.svg) left center / 706px no-repeat;
+    transform: translateX(252px);
+
+    @include laptop {
+      transform: translateX(0);
+    }
+  }
+
+  &__wrapper {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: flex-end;
+    padding: 117px 0 110px;
+
+    @include laptop {
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 80px 0 0;
+    }
+  }
+
+  &__teacher {
+    position: absolute;
+    right: 514px;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 952px;
+    aspect-ratio: 952 / 901;
+
+    @include desktop {
+      right: 440px;
+      width: 800px;
+    }
+
+    @include laptop {
+      position: static;
+      flex: 1 1 100%;
+      order: 1;
+      margin-top: -54px;
+      width: 100%;
+      aspect-ratio: auto;
+
+      @include mobile {
+        margin-top: -40px;
+      }
+    }
+
+    &-image {
+      display: block;
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+
+      @include laptop {
+        width: 640px;
+      }
+    }
+  }
+
+  &__main {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex: 0 1 825px;
+
+    @include desktop {
+      flex: 0 0 720px;
+    }
+
+    @include laptop {
+      align-items: center;
+      flex: 1 1 100%;
+      order: 0;
+    }
+  }
+
+  &__title {
+    margin: 0 0 10px;
+    font-family: 'Alegreya', sans-serif;
+    font-weight: 800;
+    font-size: 48px;
+    color: #fff;
+
+    @include laptop {
+      font-size: 40px;
+      text-align: center;
+    }
+
+    @include mobile {
+      font-size: 32px;
+    }
+  }
+
+  &__description {
+    margin: 0 0 20px;
+    font-family: 'Jost', sans-serif;
+    font-weight: 400;
+    font-size: 24px;
+    color: #fff;
+
+    @include laptop {
+      font-size: 20px;
+      text-align: center;
+    }
+
+    @include mobile {
+      font-size: 16px;
+    }
+  }
+
+  &__logos {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    &-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 calc(100% / 4 - 10px / 4 * 3);
+      padding: 5px 20px;
+      box-sizing: border-box;
+      border-radius: 10px;
+      box-shadow: 0 8px 19px 0 rgba(0, 0, 0, 0.1);
+      background: #fff;
+
+      @include tablet {
+        flex: 0 0 calc(100% / 3 - 10px / 3 * 2);
+      }
+
+      @include mobile {
+        flex: 0 0 calc(100% / 2 - 10px / 2);
+      }
+
+      &-image {
+        display: block;
+        max-width: 100%;
+        max-height: 94px;
+        height: auto;
+      }
+    }
+  }
+}

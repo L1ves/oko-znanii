@@ -1,0 +1,59 @@
+.advantages {
+  &__wrapper {
+    display: flex;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 0 0 calc(100% / 5 - 14px / 5 * 4);
+    padding: 20px 15px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    box-shadow: 0 8px 19px 0 rgba(0, 0, 0, 0.1);
+    background: #fff;
+
+    @include laptop {
+      flex: 1 0 calc(100% / 3 - 14px / 3 * 2);
+    }
+
+    @include tablet {
+      flex: 1 0 calc(100% / 2 - 14px / 2);
+    }
+
+    @include mobile {
+      flex: 1 1 100%;
+    }
+
+    &-icon {
+      margin: 0;
+
+      &-image {
+        display: block;
+        max-width: 100%;
+        width: 61px;
+        height: auto;
+      }
+    }
+
+    &-title {
+      margin: 0;
+      font-family: 'Jost', sans-serif;
+      font-weight: 600;
+      font-size: 16px;
+      color: #000;
+    }
+
+    &-text {
+      font-family: 'Jost', sans-serif;
+      font-weight: 400;
+      font-size: 14px;
+      color: #000;
+    }
+  }
+}
