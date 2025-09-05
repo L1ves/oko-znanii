@@ -43,6 +43,12 @@ class UserCreateSerializer(serializers.Serializer):
         email = attrs.get('email')
         if email and User.objects.filter(email=email).exists():
             raise serializers.ValidationError({"email": "Пользователь с таким email уже существует."})
+        
+        # Уникальность телефона при наличии
+        phone = attrs.get('phone')
+        if phone and User.objects.filter(phone=phone).exists():
+            raise serializers.ValidationError({"phone": "Пользователь с таким телефоном уже существует."})
+        
         return attrs
 
     def create(self, validated_data):
@@ -98,6 +104,29 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
-        data['user'] = UserSerializer(self.user).data
-        return data 
+        # Поддерживаем вход только по email или телефону
+        username = attrs.get('username')
+        password = attrs.get('password')
+        
+        # Пытаемся найти пользователя по email или телефону
+        user = None
+        if '@' in username:
+            # Если содержит @, ищем по email
+            try:
+                user = User.objects.get(email=username)
+            except User.DoesNotExist:
+                pass
+        elif username.startswith('+') or username.replace('+', '').replace('-', '').replace(' ', '').isdigit():
+            # Если похоже на телефон, ищем по телефону
+            try:
+                user = User.objects.get(phone=username)
+            except User.DoesNotExist:
+                pass
+        
+        if user and user.check_password(password):
+            attrs['username'] = user.username  # Передаем username для JWT
+            data = super().validate(attrs)
+            data['user'] = UserSerializer(user).data
+            return data
+        else:
+            raise serializers.ValidationError('Неверные учетные данные') 

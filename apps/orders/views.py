@@ -3,7 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db import models
 from .models import Order, Transaction, Dispute, OrderFile, OrderComment
 from .serializers import OrderSerializer, TransactionSerializer, DisputeSerializer, OrderFileSerializer, OrderCommentSerializer
 from apps.notifications.services import NotificationService

@@ -19,6 +19,8 @@ import './styles/components.css';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import CreateOrder from './pages/CreateOrder';
+import ClientDashboard from './pages/ClientDashboard';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Configure dayjs
 dayjs.locale('ru');
@@ -42,7 +44,22 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/create-order" element={<CreateOrder />} />
+              <Route 
+                path="/create-order" 
+                element={
+                  <ProtectedRoute>
+                    <CreateOrder />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/dashboard" 
+                element={
+                  <ProtectedRoute>
+                    <ClientDashboard />
+                  </ProtectedRoute>
+                } 
+              />
             </Routes>
           </div>
         </Router>

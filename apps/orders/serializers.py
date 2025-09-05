@@ -71,13 +71,14 @@ class OrderSerializer(serializers.ModelSerializer):
         source='subject', write_only=True, queryset=Subject.objects.all()
     )
     topic_id = serializers.PrimaryKeyRelatedField(
-        source='topic', write_only=True, queryset=Topic.objects.all()
+        source='topic', write_only=True, queryset=Topic.objects.all(), required=False
     )
+    custom_topic = serializers.CharField(write_only=True, required=False, allow_blank=True)
     work_type_id = serializers.PrimaryKeyRelatedField(
         source='work_type', write_only=True, queryset=WorkType.objects.all()
     )
     complexity_id = serializers.PrimaryKeyRelatedField(
-        source='complexity', write_only=True, queryset=Complexity.objects.all()
+        source='complexity', write_only=True, queryset=Complexity.objects.all(), required=False
     )
     additional_requirements = serializers.JSONField(required=False)
 
@@ -88,7 +89,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'complexity', 'title', 'description', 'deadline', 'budget', 
             'status', 'created_at', 'updated_at', 'files', 'comments',
             'subject_id', 'topic_id', 'work_type_id', 'complexity_id',
-            'additional_requirements', 'price_breakdown', 'discount',
+            'custom_topic', 'additional_requirements', 'price_breakdown', 'discount',
             'original_price', 'discount_amount', 'final_price'
         ]
         read_only_fields = [
@@ -98,7 +99,13 @@ class OrderSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, data):
-        # Проверяем, что тема принадлежит выбранному предмету
+        # Проверяем, что указана либо тема из списка, либо произвольная тема
+        if not data.get('topic') and not data.get('custom_topic'):
+            raise serializers.ValidationError({
+                'topic': 'Укажите тему из списка или введите произвольную тему'
+            })
+        
+        # Проверяем, что тема принадлежит выбранному предмету (если выбрана из списка)
         if data.get('topic') and data.get('subject'):
             if data['topic'].subject != data['subject']:
                 raise serializers.ValidationError({
@@ -120,13 +127,17 @@ class OrderSerializer(serializers.ModelSerializer):
             validated_data['client'] = request.user
         additional_requirements = validated_data.pop('additional_requirements', None)
         
-        # Рассчитываем стоимость заказа
-        price = PricingService.calculate_order_price(
-            validated_data['work_type'],
-            validated_data['complexity'],
-            validated_data['deadline'],
-            additional_requirements
+        # Рассчитываем стоимость заказа (упрощенная версия без сложности)
+        base_price = validated_data['work_type'].base_price
+        price = base_price
+        
+        # Рассчитываем коэффициент срочности
+        from apps.catalog.services import PricingService
+        urgency_multiplier = PricingService._calculate_urgency_multiplier(
+            validated_data['work_type'].estimated_time,
+            validated_data['deadline']
         )
+        price *= urgency_multiplier
         
         # Устанавливаем бюджет заказа
         validated_data['budget'] = price
@@ -139,14 +150,39 @@ class OrderSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         
-        # Добавляем разбивку цены
-        if instance.work_type and instance.complexity and instance.deadline:
-            data['price_breakdown'] = PricingService.get_price_breakdown(
-                instance.work_type,
-                instance.complexity,
-                instance.deadline,
-                getattr(instance, 'additional_requirements', None)
-            )
+        # Показываем произвольную тему, если она есть
+        if instance.custom_topic:
+            data['topic'] = {
+                'id': None,
+                'name': instance.custom_topic,
+                'slug': '',
+                'description': 'Произвольная тема',
+                'subject': instance.subject.id if instance.subject else None,
+                'subject_name': instance.subject.name if instance.subject else '',
+                'is_active': True,
+                'complexity_level': 1,
+                'keywords': '',
+                'orders_count': 0,
+                'completed_orders_count': 0
+            }
+        
+        # Добавляем разбивку цены (упрощенная версия без сложности)
+        if instance.work_type and instance.deadline:
+            base_price = float(instance.work_type.base_price)
+            urgency_multiplier = float(PricingService._calculate_urgency_multiplier(
+                instance.work_type.estimated_time,
+                instance.deadline
+            ))
+            final_price = base_price * urgency_multiplier
+            
+            data['price_breakdown'] = {
+                'base_price': base_price,
+                'complexity_adjustment': 0.0,
+                'urgency_adjustment': final_price - base_price,
+                'requirements_adjustment': 0.0,
+                'discount_amount': 0.0,
+                'final_price': final_price
+            }
         
         return data
 

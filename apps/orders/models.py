@@ -64,6 +64,12 @@ class Order(models.Model):
         related_name='orders',
         verbose_name="Тема"
     )
+    custom_topic = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Произвольная тема"
+    )
     work_type = models.ForeignKey(
         WorkType,
         on_delete=models.PROTECT,

@@ -17,7 +17,19 @@ const Header: React.FC = () => {
   }, [closeMenu]);
 
   const goToCabinet = useCallback(() => {
-    navigate('/login');
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      navigate('/dashboard');
+    } else {
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    navigate('/');
+    window.location.reload(); 
   }, [navigate]);
 
   const onMenuLinkClick = useCallback<React.MouseEventHandler<HTMLUListElement>>(
@@ -80,13 +92,27 @@ const Header: React.FC = () => {
               </ul>
 
               <div className="header__cabinet">
-                <button className="header__cabinet-button button" onClick={goToCabinet}>Личный кабинет</button>
+                {localStorage.getItem('access_token') ? (
+                  <>
+                    <button className="header__cabinet-button button" onClick={goToCabinet}>Личный кабинет</button>
+                    <button className="header__cabinet-button button" onClick={handleLogout} style={{ marginLeft: '8px' }}>Выйти</button>
+                  </>
+                ) : (
+                  <button className="header__cabinet-button button" onClick={goToCabinet}>Войти</button>
+                )}
               </div>
             </div>
           </nav>
 
           <div className="header__cabinet">
-            <button className="header__cabinet-button button" onClick={goToCabinet}>Личный кабинет</button>
+            {localStorage.getItem('access_token') ? (
+              <>
+                <button className="header__cabinet-button button" onClick={goToCabinet}>Создать заказ</button>
+                <button className="header__cabinet-button button" onClick={handleLogout} style={{ marginLeft: '8px' }}>Выйти</button>
+              </>
+            ) : (
+              <button className="header__cabinet-button button" onClick={goToCabinet}>Войти</button>
+            )}
           </div>
 
           <div className="header__burger">

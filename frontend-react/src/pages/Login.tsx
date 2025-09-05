@@ -26,9 +26,35 @@ const Login: React.FC = () => {
   const onRegister = async (values: RegisterRequest) => {
     setLoading(true);
     try {
-      await authApi.register(values);
-      message.success('Регистрация успешна! Теперь войдите в систему.');
+      // Очищаем пустые поля перед отправкой
+      const cleanValues = {
+        email: values.email || undefined,
+        phone: values.phone || undefined,
+        password: values.password,
+        password2: values.password2,
+        role: values.role
+      };
+      
+      console.log('Sending registration data:', cleanValues);
+      
+      await authApi.register(cleanValues);
+      message.success('Регистрация успешна! Выполняется вход...');
+      
+      // Автологин после регистрации
+      const loginData = {
+        username: values.email || values.phone || '',
+        password: values.password
+      };
+      
+      try {
+        await authApi.login(loginData);
+        message.success('Добро пожаловать!');
+        navigate('/create-order');
+      } catch (loginError) {
+        message.warning('Регистрация успешна, но не удалось войти автоматически. Войдите вручную.');
+      }
     } catch (error: any) {
+      console.error('Registration error:', error);
       const errorData = error.response?.data;
       if (typeof errorData === 'object') {
         Object.values(errorData).forEach((errorMessages: any) => {
@@ -48,9 +74,9 @@ const Login: React.FC = () => {
     <Form onFinish={onLogin} layout="vertical">
       <Form.Item
         name="username"
-        rules={[{ required: true, message: 'Введите имя пользователя' }]}
+        rules={[{ required: true, message: 'Введите email или телефон ' }]}
       >
-        <Input prefix={<UserOutlined />} placeholder="Имя пользователя" />
+        <Input prefix={<UserOutlined />} placeholder="Email или телефон" />
       </Form.Item>
       <Form.Item
         name="password"
@@ -68,10 +94,37 @@ const Login: React.FC = () => {
 
   const registerForm = (
     <Form onFinish={onRegister} layout="vertical">
-      <Form.Item name="email" rules={[{ type: 'email', message: 'Некорректный email' }]}> 
+      <Form.Item 
+        name="email" 
+        rules={[
+          { type: 'email', message: 'Некорректный email' },
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              const phone = getFieldValue('phone');
+              if (!value && !phone) {
+                return Promise.reject(new Error('Укажите email или телефон'));
+              }
+              return Promise.resolve();
+            },
+          }),
+        ]}
+      > 
         <Input prefix={<MailOutlined />} placeholder="Email (или оставьте пустым)" />
       </Form.Item>
-      <Form.Item name="phone">
+      <Form.Item 
+        name="phone"
+        rules={[
+          ({ getFieldValue }) => ({
+            validator(_, value) {
+              const email = getFieldValue('email');
+              if (!value && !email) {
+                return Promise.reject(new Error('Укажите email или телефон'));
+              }
+              return Promise.resolve();
+            },
+          }),
+        ]}
+      >
         <Input prefix={<PhoneOutlined />} placeholder="Телефон (или оставьте пустым)" />
       </Form.Item>
       <Form.Item

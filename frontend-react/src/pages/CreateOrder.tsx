@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Input, Select, Button, Card, Typography, message, DatePicker, Space } from 'antd';
 import { useQuery, useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { catalogApi } from '../api/catalog';
 import { ordersApi, type CreateOrderRequest } from '../api/orders';
 // import { authApi } from '../api/auth';
@@ -10,6 +11,7 @@ const { Title } = Typography;
 const { TextArea } = Input;
 
 const CreateOrder: React.FC = () => {
+  const navigate = useNavigate();
   const [form] = Form.useForm();
   const [selectedSubject, setSelectedSubject] = useState<number | undefined>();
 
@@ -19,28 +21,18 @@ const CreateOrder: React.FC = () => {
     queryFn: catalogApi.getSubjects,
   });
 
-  const { data: topics = [], isLoading: topicsLoading } = useQuery({
-    queryKey: ['topics', selectedSubject],
-    queryFn: () => catalogApi.getTopics(selectedSubject),
-    enabled: !!selectedSubject,
-  });
-
   const { data: workTypes = [], isLoading: workTypesLoading } = useQuery({
     queryKey: ['workTypes'],
     queryFn: catalogApi.getWorkTypes,
   });
 
-  const { data: complexities = [], isLoading: complexitiesLoading } = useQuery({
-    queryKey: ['complexities'],
-    queryFn: catalogApi.getComplexities,
-  });
-
   // Мутация для создания заказа
   const createOrderMutation = useMutation({
-    mutationFn: async (orderData: CreateOrderRequest) => ordersApi.create(orderData),
+    mutationFn: async (orderData: CreateOrderRequest) => ordersApi.createOrder(orderData),
     onSuccess: () => {
       message.success('Заказ создан успешно!');
       form.resetFields();
+      navigate('/dashboard');
     },
     onError: () => {
       message.error('Ошибка создания заказа');
@@ -53,9 +45,8 @@ const CreateOrder: React.FC = () => {
       description: values.description,
       deadline: values.deadline?.format('YYYY-MM-DD'),
       subject_id: values.subject_id,
-      topic_id: values.topic_id,
+      custom_topic: values.custom_topic,
       work_type_id: values.work_type_id,
-      complexity_id: values.complexity_id,
     };
     createOrderMutation.mutate(orderData);
   };
@@ -113,21 +104,11 @@ const CreateOrder: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            name="topic_id"
+            name="custom_topic"
             label="Тема"
-            rules={[{ required: true, message: 'Выберите тему' }]}
+            rules={[{ required: true, message: 'Введите тему' }]}
           >
-            <Select
-              placeholder="Выберите тему"
-              loading={topicsLoading}
-              disabled={!selectedSubject}
-            >
-              {topics.map((topic) => (
-                <Select.Option key={topic.id} value={topic.id}>
-                  {topic.name}
-                </Select.Option>
-              ))}
-            </Select>
+            <Input placeholder="Введите тему работы" />
           </Form.Item>
 
           <Form.Item
@@ -147,22 +128,6 @@ const CreateOrder: React.FC = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item
-            name="complexity_id"
-            label="Сложность"
-            rules={[{ required: true, message: 'Выберите сложность' }]}
-          >
-            <Select
-              placeholder="Выберите сложность"
-              loading={complexitiesLoading}
-            >
-              {complexities.map((complexity) => (
-                <Select.Option key={complexity.id} value={complexity.id}>
-                  {complexity.name} (x{complexity.multiplier})
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
 
           <Form.Item
             name="deadline"
