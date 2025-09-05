@@ -1,8 +1,11 @@
 import React from 'react';
+import { useRouter } from 'next/router';
+import Image from 'next/image';
 
 const LeaveOrder: React.FC = () => {
+  const router = useRouter();
   return (
-    <section className="leave-order">
+    <section className="leave-order" id="orders">
       <div className="mcontainer">
         <h2 className="leave-order__title">Закажи работу за три шага 🤝</h2>
 
@@ -11,10 +14,12 @@ const LeaveOrder: React.FC = () => {
             <div className="leave-order__steps-item">
               <div className="leave-order__steps-item-title">Оставь заявку</div>
               <figure className="leave-order__steps-item-icon">
-                <img
+                <Image
                   className="leave-order__steps-item-icon-image"
                   src="/assets/leave-order/leave-order-icon-1.svg"
                   alt="icons"
+                  width={66}
+                  height={66}
                 />
               </figure>
               <div className="leave-order__steps-item-text">
@@ -25,10 +30,12 @@ const LeaveOrder: React.FC = () => {
             <div className="leave-order__steps-item">
               <div className="leave-order__steps-item-title">Выбери профессионала</div>
               <figure className="leave-order__steps-item-icon">
-                <img
+                <Image
                   className="leave-order__steps-item-icon-image"
                   src="/assets/leave-order/leave-order-icon-2.svg"
                   alt="icons"
+                  width={66}
+                  height={66}
                 />
               </figure>
               <div className="leave-order__steps-item-text">
@@ -39,10 +46,12 @@ const LeaveOrder: React.FC = () => {
             <div className="leave-order__steps-item">
               <div className="leave-order__steps-item-title">Забирай результат</div>
               <figure className="leave-order__steps-item-icon">
-                <img
+                <Image
                   className="leave-order__steps-item-icon-image"
                   src="/assets/leave-order/leave-order-icon-3.svg"
                   alt="icons"
+                  width={66}
+                  height={66}
                 />
               </figure>
               <div className="leave-order__steps-item-text">
@@ -53,7 +62,7 @@ const LeaveOrder: React.FC = () => {
         </div>
 
         <div className="leave-order__order">
-          <button className="leave-order__order-button button">Разместить заказ</button>
+          <button className="leave-order__order-button button" onClick={() => router.push('/client/orders')}>Разместить заказ</button>
         </div>
       </div>
     </section>

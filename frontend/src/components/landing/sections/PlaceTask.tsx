@@ -1,7 +1,8 @@
 import React from 'react';
+import Image from 'next/image';
 
 const PlaceTask: React.FC = () => (
-  <section className="place-task">
+  <section className="place-task" id="services">
     <div className="mcontainer">
       <div className="place-task__content">
         <h2 className="place-task__content-title">
@@ -16,10 +17,12 @@ const PlaceTask: React.FC = () => (
       <div className="place-task__advantages">
         <div className="place-task__advantages-card">
           <figure className="place-task__advantages-card-figure">
-            <img
+            <Image
               className="place-task__advantages-card-figure-image"
               src="/assets/place-task/place-task-icon-1.png"
               alt="icon"
+              width={34}
+              height={34}
             />
           </figure>
           <div className="place-task__advantages-card-text">9.4 / 10 Оценка качества</div>
@@ -27,10 +30,12 @@ const PlaceTask: React.FC = () => (
 
         <div className="place-task__advantages-card">
           <figure className="place-task__advantages-card-figure">
-            <img
+            <Image
               className="place-task__advantages-card-figure-image"
               src="/assets/place-task/place-task-icon-2.png"
               alt="icon"
+              width={34}
+              height={34}
             />
           </figure>
           <div className="place-task__advantages-card-text">400 000+ экспертов</div>
@@ -38,10 +43,12 @@ const PlaceTask: React.FC = () => (
 
         <div className="place-task__advantages-card">
           <figure className="place-task__advantages-card-figure">
-            <img
+            <Image
               className="place-task__advantages-card-figure-image"
               src="/assets/place-task/place-task-icon-3.png"
               alt="icon"
+              width={34}
+              height={34}
             />
           </figure>
           <div className="place-task__advantages-card-text">Работаем 24/7</div>

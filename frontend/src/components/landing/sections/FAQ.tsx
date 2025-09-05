@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 
 interface FAQItem {
   id: number;
@@ -40,6 +41,18 @@ const FAQ: React.FC = () => {
   const [activeItems, setActiveItems] = useState<Set<number>>(
     new Set(faqData.filter(item => item.isActive).map(item => item.id))
   );
+  const panelsRef = useRef<Record<number, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    activeItems.forEach((id) => {
+      const panel = panelsRef.current[id];
+      if (panel) {
+        const content = panel.firstElementChild as HTMLDivElement | null;
+        const targetHeight = content ? content.scrollHeight : 0;
+        panel.style.maxHeight = `${targetHeight}px`;
+      }
+    });
+  }, [activeItems]);
 
   const toggleItem = (id: number) => {
     const newActiveItems = new Set(activeItems);
@@ -52,11 +65,11 @@ const FAQ: React.FC = () => {
   };
 
   return (
-    <section className="faq">
+    <section className="faq" id="faq">
       <div className="mcontainer">
         <div className="faq__wrapper">
           <figure className="faq__photo">
-            <img className="faq__photo-image" src="/assets/faq/faq-image.png" alt="faq" />
+            <Image className="faq__photo-image" src="/assets/faq/faq-image.png" alt="faq" width={1344} height={600} />
           </figure>
 
           <div className="faq__content">
@@ -75,7 +88,18 @@ const FAQ: React.FC = () => {
                   <div className="faq__item-toggler-question">{item.question}</div>
                 </div>
 
-                <div className="faq__item-panel">
+                <div
+                  ref={(el) => {
+                    if (!panelsRef.current) panelsRef.current = {};
+                    panelsRef.current[item.id] = el;
+                    if (el) {
+                      el.style.maxHeight = activeItems.has(item.id)
+                        ? `${(el.firstElementChild as HTMLDivElement | null)?.scrollHeight || 0}px`
+                        : '0px';
+                    }
+                  }}
+                  className="faq__item-panel"
+                >
                   <div className="faq__item-panel-answer">
                     {item.answer}
                   </div>

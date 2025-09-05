@@ -1,12 +1,13 @@
 import React from 'react';
+import Image from 'next/image';
 
 const Advantages: React.FC = () => (
-  <section className="advantages">
+  <section className="advantages" id="experts">
     <div className="mcontainer">
       <div className="advantages__wrapper">
         <div className="advantages__card">
           <figure className="advantages__card-icon">
-            <img className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-1.svg" alt="icon" />
+            <Image className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-1.svg" alt="icon" width={61} height={61} />
           </figure>
           <div className="advantages__card-title">Более 800 тысяч довольных студентов</div>
           <div className="advantages__card-text">
@@ -16,7 +17,7 @@ const Advantages: React.FC = () => (
 
         <div className="advantages__card">
           <figure className="advantages__card-icon">
-            <img className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-2.svg" alt="icon" />
+            <Image className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-2.svg" alt="icon" width={61} height={61} />
           </figure>
           <div className="advantages__card-title">Мгновенный отклик экспертов</div>
           <div className="advantages__card-text">
@@ -26,7 +27,7 @@ const Advantages: React.FC = () => (
 
         <div className="advantages__card">
           <figure className="advantages__card-icon">
-            <img className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-3.svg" alt="icon" />
+            <Image className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-3.svg" alt="icon" width={61} height={61} />
           </figure>
           <div className="advantages__card-title">Выгодные цены без посредников</div>
           <div className="advantages__card-text">
@@ -36,7 +37,7 @@ const Advantages: React.FC = () => (
 
         <div className="advantages__card">
           <figure className="advantages__card-icon">
-            <img className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-4.svg" alt="icon" />
+            <Image className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-4.svg" alt="icon" width={61} height={61} />
           </figure>
           <div className="advantages__card-title">Бесплатные доработки и сопровождение</div>
           <div className="advantages__card-text">
@@ -46,7 +47,7 @@ const Advantages: React.FC = () => (
 
         <div className="advantages__card">
           <figure className="advantages__card-icon">
-            <img className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-5.svg" alt="icon" />
+            <Image className="advantages__card-icon-image" src="/assets/advantages/advantages-icon-5.svg" alt="icon" width={61} height={61} />
           </figure>
           <div className="advantages__card-title">Возврат денег — гарантия безопасности</div>
           <div className="advantages__card-text">Вернём деньги полностью, если автор не выполнит работу.</div>

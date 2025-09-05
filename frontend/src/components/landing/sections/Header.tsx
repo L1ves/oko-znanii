@@ -1,71 +1,103 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import Image from 'next/image';
 
-const Header: React.FC = () => (
-  <header className="header">
-    <div className="mcontainer">
-      <div className="header__wrapper">
-        <div className="header__logo">
-          <div className="header__logo-link">
-            <img className="header__logo-link-image" src="/assets/logo.svg" alt="logo" />
+const Header: React.FC = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const router = useRouter();
+
+  const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+  const toggleMenu = useCallback(() => setIsMenuOpen((v) => !v), []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeMenu();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [closeMenu]);
+
+  const goToCabinet = useCallback(() => {
+    router.push('/profile');
+  }, [router]);
+
+  const onMenuLinkClick = useCallback<React.MouseEventHandler<HTMLUListElement>>(
+    (e) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName.toLowerCase() === 'a') {
+        closeMenu();
+      }
+    },
+    [closeMenu]
+  );
+
+  return (
+    <header className="header">
+      <div className="mcontainer">
+        <div className="header__wrapper">
+          <div className="header__logo">
+            <div className="header__logo-link">
+              <Image className="header__logo-link-image" src="/assets/logo.svg" alt="logo" width={120} height={36} priority />
+            </div>
           </div>
-        </div>
 
-        <nav className="header__nav">
-          <div className="header__nav-wrapper">
-            <div className="header__logo">
-              <div className="header__logo-link">
-                <img className="header__logo-link-image" src="/assets/logo.svg" alt="logo" />
+          <nav className={`header__nav ${isMenuOpen ? 'active' : ''}`}>
+            <div className="header__nav-wrapper">
+              <div className="header__logo">
+                <div className="header__logo-link">
+                  <Image className="header__logo-link-image" src="/assets/logo.svg" alt="logo" width={120} height={36} />
+                </div>
+              </div>
+
+              <div className="header__close">
+                <button className="header__close-button" onClick={closeMenu} aria-label="Закрыть меню"></button>
+              </div>
+
+              <ul className="header__nav-menu" onClick={onMenuLinkClick}>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#services">Услуги</a>
+                </li>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#orders">Заказы</a>
+                </li>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#experts">Эксперты</a>
+                </li>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#shop">Магазин</a>
+                </li>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#faq">FAQ</a>
+                </li>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#support">Поддержка</a>
+                </li>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#be-expert">Стать экспертом</a>
+                </li>
+                <li className="header__nav-menu-item">
+                  <a className="header__nav-menu-item-link" href="#partners">Стать партнерам</a>
+                </li>
+              </ul>
+
+              <div className="header__cabinet">
+                <button className="header__cabinet-button button" onClick={goToCabinet}>Личный кабинет</button>
               </div>
             </div>
+          </nav>
 
-            <div className="header__close">
-              <button className="header__close-button"></button>
-            </div>
-
-            <ul className="header__nav-menu">
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">Услуги</a>
-              </li>
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">Заказы</a>
-              </li>
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">Эксперты</a>
-              </li>
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">Магазин</a>
-              </li>
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">FAQ</a>
-              </li>
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">Поддержка</a>
-              </li>
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">Стать экспертом</a>
-              </li>
-              <li className="header__nav-menu-item">
-                <a className="header__nav-menu-item-link" href="#">Стать партнерам</a>
-              </li>
-            </ul>
-
-            <div className="header__cabinet">
-              <button className="header__cabinet-button button">Личный кабинет</button>
-            </div>
+          <div className="header__cabinet">
+            <button className="header__cabinet-button button" onClick={goToCabinet}>Личный кабинет</button>
           </div>
-        </nav>
 
-        <div className="header__cabinet">
-          <button className="header__cabinet-button button">Личный кабинет</button>
-        </div>
-
-        <div className="header__burger">
-          <button className="header__burger-button"></button>
+          <div className="header__burger">
+            <button className="header__burger-button" onClick={toggleMenu} aria-label="Открыть меню"></button>
+          </div>
         </div>
       </div>
-    </div>
-  </header>
-);
+    </header>
+  );
+};
 
 export default Header;
 

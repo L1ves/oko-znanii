@@ -20,6 +20,10 @@ export interface Order {
   id: number;
   title: string;
   description: string;
+  subject_id?: number;
+  topic_id?: number;
+  work_type_id?: number;
+  complexity_id?: number;
   status: 'new' | 'waiting_payment' | 'in_progress' | 'review' | 'revision' | 'completed' | 'cancelled';
   budget: number;
   final_price?: number;
@@ -97,3 +101,18 @@ export const fetchClientStatistics = async (): Promise<ClientStatistics> => {
   const { data } = await api.get('/users/client_dashboard/');
   return data.statistics;
 }; 
+
+// Создание заказа (минимальная форма)
+export async function createOrderMinimal(payload: {
+  title: string;
+  description: string;
+  deadline: string; // ISO string
+  subject_id: number;
+  topic_id: number;
+  work_type_id: number;
+  complexity_id: number;
+  additional_requirements?: Record<string, unknown>;
+}) {
+  const { data } = await api.post('/orders/', payload);
+  return data as Order;
+}

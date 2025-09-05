@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Navigation } from 'swiper/modules';
 import 'swiper/css';
@@ -88,8 +88,12 @@ const ReviewSlide: React.FC<{ review: Review }> = ({ review }) => (
 );
 
 const Reviews: React.FC = () => {
+  const prevRef = useRef<HTMLButtonElement | null>(null);
+  const nextRef = useRef<HTMLButtonElement | null>(null);
+  const paginationRef = useRef<HTMLDivElement | null>(null);
+
   return (
-    <section className="reviews">
+    <section className="reviews" id="reviews">
       <div className="mcontainer">
         <h2 className="reviews__title">
           Око знаний открывает новые горизонты в учёбе. В раздумьях, довериться ли нам?
@@ -112,15 +116,23 @@ const Reviews: React.FC = () => {
                 slidesPerView: 3,
               },
             }}
-            pagination={{
-              clickable: true,
-              el: '.reviews__slider-controls-pagination',
-              bulletClass: 'swiper-pagination-bullet',
-              bulletActiveClass: 'swiper-pagination-bullet-active',
+            onBeforeInit={(swiper) => {
+              // @ts-expect-error - Swiper types allow assignment at runtime
+              swiper.params.navigation.prevEl = prevRef.current;
+              // @ts-expect-error - Swiper types allow assignment at runtime
+              swiper.params.navigation.nextEl = nextRef.current;
+              // @ts-expect-error - Swiper types allow assignment at runtime
+              swiper.params.pagination.el = paginationRef.current;
             }}
             navigation={{
-              nextEl: '.reviews__slider-controls-next',
-              prevEl: '.reviews__slider-controls-prev',
+              prevEl: prevRef.current,
+              nextEl: nextRef.current,
+            }}
+            pagination={{
+              clickable: true,
+              el: paginationRef.current,
+              bulletClass: 'swiper-pagination-bullet',
+              bulletActiveClass: 'swiper-pagination-bullet-active',
             }}
             className="swiper"
           >
@@ -132,11 +144,9 @@ const Reviews: React.FC = () => {
           </Swiper>
 
           <div className="reviews__slider-controls">
-            <button className="reviews__slider-controls-prev"></button>
-            
-            <div className="reviews__slider-controls-pagination"></div>
-            
-            <button className="reviews__slider-controls-next"></button>
+            <button ref={prevRef} className="reviews__slider-controls-prev" aria-label="Предыдущий отзыв"></button>
+            <div ref={paginationRef} className="reviews__slider-controls-pagination"></div>
+            <button ref={nextRef} className="reviews__slider-controls-next" aria-label="Следующий отзыв"></button>
           </div>
         </div>
       </div>

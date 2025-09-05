@@ -24,12 +24,12 @@ from django.urls import path
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api-auth/', include('rest_framework.urls')),
-    path('api/', include('apps.core.urls')),
     path('api/users/', include('apps.users.urls')),
     path('api/catalog/', include('apps.catalog.urls')),
     path('api/orders/', include('apps.orders.urls')),
     path('api/experts/', include('apps.experts.urls')),
     path('api/notifications/', include('apps.notifications.urls')),
+    path('api/', include('apps.core.urls')),
 ]
 
 if settings.DEBUG:

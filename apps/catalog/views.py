@@ -41,7 +41,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
     filterset_fields = ['category', 'is_active']
     search_fields = ['name', 'description', 'keywords']
     ordering_fields = ['name', 'created_at', 'min_price']
-    ordering = ['category__order', 'name']
+    ordering = ['name']
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -51,9 +51,9 @@ class SubjectViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Subject.objects.select_related('category').annotate(
             topics_count=Count('topics'),
-            active_topics_count=Count('topics', filter=Q(topics__is_active=True)),
+            active_topics_annotated=Count('topics', filter=Q(topics__is_active=True)),
             experts_count=Count('experts', distinct=True),
-            verified_experts_count=Count('experts', filter=Q(experts__is_verified=True), distinct=True),
+            verified_experts_annotated=Count('experts', filter=Q(experts__is_verified=True), distinct=True),
             orders_count=Count('orders'),
             completed_orders_count=Count('orders', filter=Q(orders__status='completed')),
             avg_rating=Avg('orders__expert_review__rating', filter=Q(orders__status='completed'))
@@ -62,7 +62,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
         # Фильтрация по наличию экспертов
         has_experts = self.request.query_params.get('has_experts')
         if has_experts == 'true':
-            queryset = queryset.filter(verified_experts_count__gt=0)
+            queryset = queryset.filter(verified_experts_annotated__gt=0)
         
         # Фильтрация по ценовому диапазону
         min_price = self.request.query_params.get('min_price')
@@ -294,13 +294,7 @@ class WorkTypeViewSet(viewsets.ModelViewSet):
     ordering = ['name']
 
     def get_queryset(self):
-        return WorkType.objects.annotate(
-            orders_count=Count('orders'),
-            avg_completion_time=Avg(
-                F('orders__completed_at') - F('orders__created_at'),
-                filter=Q(orders__status='completed')
-            )
-        )
+        return WorkType.objects.all()
 
     @action(detail=True, methods=['post'])
     def calculate_price(self, request, pk=None):
@@ -351,10 +345,7 @@ class ComplexityViewSet(viewsets.ModelViewSet):
     ordering = ['multiplier']
 
     def get_queryset(self):
-        return Complexity.objects.annotate(
-            orders_count=Count('orders'),
-            avg_rating=Avg('orders__expert_review__rating', filter=Q(orders__status='completed'))
-        )
+        return Complexity.objects.all()
 
 class DiscountViewSet(viewsets.ModelViewSet):
     queryset = DiscountRule.objects.all()

@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider } from 'antd';
 import ruRU from 'antd/locale/ru_RU';
 import '../styles/globals.css';
+import '../styles/tokens.css';
 import '../styles/landing.css';
 
 const queryClient = new QueryClient({

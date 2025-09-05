@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Table, Tag, Button, Space, Select, Typography, Input } from 'antd';
+import { Card, Table, Tag, Button, Space, Select, Typography, Input, Modal, Form, DatePicker, message } from 'antd';
 import { SearchOutlined, EyeOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'next/router';
-import { fetchClientOrders, Order } from '../../api/client';
+import { fetchClientOrders, Order, createOrderMinimal } from '../../api/client';
+import { fetchSubjects, fetchTopics, fetchWorkTypes, fetchComplexities, Topic, WorkType, Complexity } from '../../api/catalog';
+import { Subject } from '../../types/catalog';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -15,12 +17,39 @@ const ClientOrdersPage: React.FC = () => {
     search: '',
     ordering: '-created_at',
   });
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [form] = Form.useForm();
 
   const { data: ordersData, isLoading } = useQuery({
     queryKey: ['client-orders', filters],
     queryFn: () => fetchClientOrders(filters),
     staleTime: 1000 * 60 * 2, // 2 минуты
   });
+
+  const { data: subjects, isLoading: subjectsLoading, error: subjectsError } = useQuery({
+    queryKey: ['subjects'],
+    queryFn: fetchSubjects,
+  });
+
+  const { data: topics, isLoading: topicsLoading, error: topicsError } = useQuery({
+    queryKey: ['topics'],
+    queryFn: fetchTopics,
+  });
+
+  const { data: workTypes, isLoading: workTypesLoading, error: workTypesError } = useQuery({
+    queryKey: ['work-types'],
+    queryFn: fetchWorkTypes,
+  });
+
+  const { data: complexities, isLoading: complexitiesLoading, error: complexitiesError } = useQuery({
+    queryKey: ['complexities'],
+    queryFn: fetchComplexities,
+  });
+
+  // Отладочная информация
+  console.log('Subjects:', subjects, 'Loading:', subjectsLoading, 'Error:', subjectsError);
+  console.log('WorkTypes:', workTypes, 'Loading:', workTypesLoading, 'Error:', workTypesError);
+  console.log('Complexities:', complexities, 'Loading:', complexitiesLoading, 'Error:', complexitiesError);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -149,10 +178,31 @@ const ClientOrdersPage: React.FC = () => {
     },
   ];
 
+  const handleCreate = async () => {
+    try {
+      const values = await form.validateFields();
+      await createOrderMinimal({
+        title: values.title,
+        description: values.description,
+        deadline: values.deadline.toISOString(),
+        subject_id: Number(values.subject_id),
+        topic_id: Number(values.topic_id),
+        work_type_id: Number(values.work_type_id),
+        complexity_id: Number(values.complexity_id),
+      });
+      message.success('Заказ создан');
+      setIsCreateOpen(false);
+      form.resetFields();
+    } catch (e) {
+      message.error('Не удалось создать заказ');
+    }
+  };
+
   return (
     <div style={{ padding: '24px' }}>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         <Title level={2}>Мои заказы</Title>
+        <Button type="primary" onClick={() => setIsCreateOpen(true)}>Создать заказ</Button>
 
         {/* Фильтры */}
         <Card>
@@ -213,6 +263,63 @@ const ClientOrdersPage: React.FC = () => {
             }}
           />
         </Card>
+
+        <Modal
+          title="Создать заказ"
+          open={isCreateOpen}
+          onOk={handleCreate}
+          onCancel={() => setIsCreateOpen(false)}
+          okText="Создать"
+          cancelText="Отмена"
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item name="title" label="Название" rules={[{ required: true, message: 'Укажите название' }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="description" label="Описание" rules={[{ required: true, message: 'Опишите задачу' }]}>
+              <Input.TextArea rows={4} />
+            </Form.Item>
+            <Form.Item name="deadline" label="Дедлайн" rules={[{ required: true, message: 'Укажите дедлайн' }]}>
+              <DatePicker showTime style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="subject_id" label="Предмет" rules={[{ required: true }]}>
+              <Select placeholder="Выберите предмет">
+                {subjects?.map((subject: Subject) => (
+                  <Option key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="topic_id" label="Тема" rules={[{ required: true }]}>
+              <Select placeholder="Выберите тему">
+                {topics?.map((topic: Topic) => (
+                  <Option key={topic.id} value={topic.id}>
+                    {topic.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="work_type_id" label="Тип работы" rules={[{ required: true }]}>
+              <Select placeholder="Выберите тип работы">
+                {workTypes?.map((workType: WorkType) => (
+                  <Option key={workType.id} value={workType.id}>
+                    {workType.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item name="complexity_id" label="Сложность" rules={[{ required: true }]}>
+              <Select placeholder="Выберите сложность">
+                {complexities?.map((complexity: Complexity) => (
+                  <Option key={complexity.id} value={complexity.id}>
+                    {complexity.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Form>
+        </Modal>
       </Space>
     </div>
   );

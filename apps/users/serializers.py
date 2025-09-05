@@ -6,95 +6,75 @@ from django.contrib.auth.password_validation import validate_password
 User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
+    specializations = serializers.SerializerMethodField()
+    
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 
             'role', 'phone', 'telegram_id', 'balance', 'frozen_balance',
-            'date_joined', 'last_login'
+            'date_joined', 'last_login', 'specializations'
         ]
         read_only_fields = ['email', 'date_joined', 'last_login']
+    
+    def get_specializations(self, obj):
+        """Возвращает специализации только для экспертов"""
+        if obj.role == 'expert':
+            from apps.experts.serializers import SpecializationSerializer
+            return SpecializationSerializer(obj.specializations.all(), many=True).data
+        return []
 
 class UserCreateSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    email = serializers.EmailField()
+    # MVP: упрощенная регистрация
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
-    first_name = serializers.CharField()
-    last_name = serializers.CharField()
     role = serializers.ChoiceField(choices=[('client', 'Клиент'), ('expert', 'Специалист')])
-    phone = serializers.CharField(required=False, allow_blank=True)
-    about = serializers.CharField(required=False, allow_blank=True)
-    education = serializers.CharField(required=False, allow_blank=True)
-    experience_years = serializers.IntegerField(required=False, min_value=0, max_value=50)
-    hourly_rate = serializers.DecimalField(required=False, max_digits=10, decimal_places=2, min_value=0)
-    specializations = serializers.ListField(
-        child=serializers.CharField(),
-        required=False
-    )
-
-    def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Пользователь с таким именем уже существует.")
-        return value
-
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Пользователь с таким email уже существует.")
-        return value
 
     def validate(self, attrs):
+        # Должен быть email или телефон
+        if not attrs.get('email') and not attrs.get('phone'):
+            raise serializers.ValidationError({"contact": "Укажите email или телефон"})
+        # Пароли совпадают
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Пароли не совпадают"})
-        
-        # Валидация для специалистов
-        if attrs.get('role') == 'expert':
-            if not attrs.get('about'):
-                raise serializers.ValidationError({"about": "Для специалистов обязательно указать информацию о себе"})
-            if not attrs.get('education'):
-                raise serializers.ValidationError({"education": "Для специалистов обязательно указать образование"})
-            if attrs.get('experience_years') is None:
-                raise serializers.ValidationError({"experience_years": "Для специалистов обязательно указать опыт работы"})
-            if attrs.get('hourly_rate') is None:
-                raise serializers.ValidationError({"hourly_rate": "Для специалистов обязательно указать часовую ставку"})
-            if not attrs.get('specializations'):
-                raise serializers.ValidationError({"specializations": "Для специалистов обязательно указать специализации"})
-        
+        # Уникальность email при наличии
+        email = attrs.get('email')
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"email": "Пользователь с таким email уже существует."})
         return attrs
 
     def create(self, validated_data):
-        # Извлекаем поля, которые не относятся к модели User
-        specializations = validated_data.pop('specializations', [])
-        about = validated_data.pop('about', '')
-        education = validated_data.pop('education', '')
-        experience_years = validated_data.pop('experience_years', 0)
-        hourly_rate = validated_data.pop('hourly_rate', 0)
-        validated_data.pop('password2')
-        
-        # Создаем пользователя
-        user = User.objects.create_user(**validated_data)
-        
-        # Если это специалист, создаем специализации
-        if user.role == 'expert' and specializations:
-            from apps.catalog.models import Subject
-            from apps.experts.models import Specialization
-            
-            for spec_name in specializations:
-                # Ищем или создаем предмет
-                subject, created = Subject.objects.get_or_create(
-                    name=spec_name,
-                    defaults={'description': f'Предмет: {spec_name}'}
-                )
-                
-                # Создаем специализацию
-                Specialization.objects.create(
-                    expert=user,
-                    subject=subject,
-                    experience_years=experience_years,
-                    hourly_rate=hourly_rate,
-                    description=about
-                )
-        
+        email = validated_data.get('email', '')
+        phone = validated_data.get('phone', '')
+        password = validated_data.get('password')
+        role = validated_data.get('role')
+        # Удаляем вспомогательные поля
+        validated_data.pop('password2', None)
+
+        # Генерируем username: email до @ или телефон
+        if email:
+            base_username = email.split('@')[0]
+        elif phone:
+            base_username = phone
+        else:
+            base_username = 'user'
+
+        username = base_username
+        suffix = 1
+        while User.objects.filter(username=username).exists():
+            username = f"{base_username}{suffix}"
+            suffix += 1
+
+        user = User.objects.create_user(
+            username=username,
+            email=email or None,
+            phone=phone or None,
+            password=password,
+            role=role,
+        )
+
         return user
 
 class UserUpdateSerializer(serializers.ModelSerializer):
