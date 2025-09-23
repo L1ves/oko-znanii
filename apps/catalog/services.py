@@ -178,8 +178,13 @@ class PricingService:
         now = timezone.now()
         hours_until_deadline = (deadline - now).total_seconds() / 3600
         
+        # Проверяем, что дедлайн не в прошлом
         if hours_until_deadline <= 0:
             raise ValueError("Дедлайн не может быть в прошлом")
+        
+        # Проверяем, что estimated_time больше 0
+        if estimated_time <= 0:
+            return Decimal('1.0')
         
         # Если времени меньше стандартного
         if hours_until_deadline < estimated_time:

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, Transaction, Dispute, OrderFile, OrderComment
+from .models import Order, Transaction, Dispute, OrderFile, OrderComment, Bid
 from apps.catalog.models import Subject, Topic, WorkType, Complexity
 from apps.catalog.serializers import SubjectSerializer, TopicSerializer, WorkTypeSerializer, ComplexitySerializer, DiscountRuleSerializer
 from apps.catalog.services import PricingService
@@ -47,6 +47,14 @@ class OrderCommentSerializer(serializers.ModelSerializer):
         fields = ['id', 'text', 'author', 'created_at']
         read_only_fields = ['author']
 
+class BidSerializer(serializers.ModelSerializer):
+    expert = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Bid
+        fields = ['id', 'order', 'expert', 'amount', 'comment', 'created_at']
+        read_only_fields = ['id', 'expert', 'created_at', 'order']
+
 class OrderPriceBreakdownSerializer(serializers.Serializer):
     base_price = serializers.DecimalField(max_digits=10, decimal_places=2)
     complexity_adjustment = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -63,6 +71,7 @@ class OrderSerializer(serializers.ModelSerializer):
     complexity = ComplexitySerializer(read_only=True)
     files = OrderFileSerializer(many=True, read_only=True)
     comments = OrderCommentSerializer(many=True, read_only=True)
+    bids = BidSerializer(many=True, read_only=True)
     price_breakdown = OrderPriceBreakdownSerializer(read_only=True)
     discount = DiscountRuleSerializer(read_only=True)
 
@@ -87,7 +96,7 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'client', 'expert', 'subject', 'topic', 'work_type', 
             'complexity', 'title', 'description', 'deadline', 'budget', 
-            'status', 'created_at', 'updated_at', 'files', 'comments',
+            'status', 'created_at', 'updated_at', 'files', 'comments', 'bids',
             'subject_id', 'topic_id', 'work_type_id', 'complexity_id',
             'custom_topic', 'additional_requirements', 'price_breakdown', 'discount',
             'original_price', 'discount_amount', 'final_price'
@@ -119,6 +128,13 @@ class OrderSerializer(serializers.ModelSerializer):
                     'deadline': 'Дедлайн не может быть в прошлом'
                 })
         
+        # Проверяем цену
+        if data.get('budget'):
+            if data['budget'] <= 0:
+                raise serializers.ValidationError({
+                    'budget': 'Цена должна быть больше 0'
+                })
+        
         return data
 
     def create(self, validated_data):
@@ -127,20 +143,24 @@ class OrderSerializer(serializers.ModelSerializer):
             validated_data['client'] = request.user
         additional_requirements = validated_data.pop('additional_requirements', None)
         
-        # Рассчитываем стоимость заказа (упрощенная версия без сложности)
-        base_price = validated_data['work_type'].base_price
-        price = base_price
+        # Проверяем дедлайн еще раз перед расчетом цены
+        deadline = validated_data.get('deadline')
+        if deadline and deadline <= timezone.now():
+            raise serializers.ValidationError({
+                'deadline': 'Дедлайн не может быть в прошлом'
+            })
         
-        # Рассчитываем коэффициент срочности
-        from apps.catalog.services import PricingService
-        urgency_multiplier = PricingService._calculate_urgency_multiplier(
-            validated_data['work_type'].estimated_time,
-            validated_data['deadline']
-        )
-        price *= urgency_multiplier
+        # Используем цену, указанную клиентом
+        if 'budget' not in validated_data or not validated_data['budget']:
+            raise serializers.ValidationError({
+                'budget': 'Укажите желаемую цену за работу'
+            })
         
-        # Устанавливаем бюджет заказа
-        validated_data['budget'] = price
+        # Проверяем, что цена больше 0
+        if validated_data['budget'] <= 0:
+            raise serializers.ValidationError({
+                'budget': 'Цена должна быть больше 0'
+            })
         
         # Создаем заказ
         order = super().create(validated_data)
@@ -168,21 +188,33 @@ class OrderSerializer(serializers.ModelSerializer):
         
         # Добавляем разбивку цены (упрощенная версия без сложности)
         if instance.work_type and instance.deadline:
-            base_price = float(instance.work_type.base_price)
-            urgency_multiplier = float(PricingService._calculate_urgency_multiplier(
-                instance.work_type.estimated_time,
-                instance.deadline
-            ))
-            final_price = base_price * urgency_multiplier
-            
-            data['price_breakdown'] = {
-                'base_price': base_price,
-                'complexity_adjustment': 0.0,
-                'urgency_adjustment': final_price - base_price,
-                'requirements_adjustment': 0.0,
-                'discount_amount': 0.0,
-                'final_price': final_price
-            }
+            try:
+                base_price = float(instance.work_type.base_price)
+                urgency_multiplier = float(PricingService._calculate_urgency_multiplier(
+                    instance.work_type.estimated_time,
+                    instance.deadline
+                ))
+                final_price = base_price * urgency_multiplier
+                
+                data['price_breakdown'] = {
+                    'base_price': base_price,
+                    'complexity_adjustment': 0.0,
+                    'urgency_adjustment': final_price - base_price,
+                    'requirements_adjustment': 0.0,
+                    'discount_amount': 0.0,
+                    'final_price': final_price
+                }
+            except ValueError as e:
+                # Если дедлайн в прошлом, показываем базовую цену без срочности
+                base_price = float(instance.work_type.base_price)
+                data['price_breakdown'] = {
+                    'base_price': base_price,
+                    'complexity_adjustment': 0.0,
+                    'urgency_adjustment': 0.0,
+                    'requirements_adjustment': 0.0,
+                    'discount_amount': 0.0,
+                    'final_price': base_price
+                }
         
         return data
 

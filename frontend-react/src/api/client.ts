@@ -10,10 +10,19 @@ export const apiClient = axios.create({
   withCredentials: true,
 });
 
-// Добавляем токен к каждому запросу
+// Добавляем токен к каждому запросу, кроме auth/регистрации
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token');
-  if (token) {
+  const url = config.url || '';
+  const method = (config.method || 'get').toLowerCase();
+
+  // Эндпоинты аутентификации, для которых не нужен Authorization
+  const normalizedUrl = url.toString();
+  const isAuthEndpoint =
+    normalizedUrl.includes('/users/token') || // /users/token/ и /users/token/refresh/
+    (normalizedUrl.endsWith('/users/') && method === 'post'); // регистрация
+
+  if (token && !isAuthEndpoint) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

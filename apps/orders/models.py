@@ -204,6 +204,12 @@ class Order(models.Model):
             self.final_price = None
             self.save()
 
+    def clean(self):
+        # Валидация дедлайна на уровне модели
+        if self.deadline and self.deadline <= timezone.now():
+            from django.core.exceptions import ValidationError
+            raise ValidationError({'deadline': 'Дедлайн не может быть в прошлом'})
+
 class OrderFile(models.Model):
     FILE_TYPES = [
         ('task', 'Задание'),
@@ -297,6 +303,22 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.user.username} — {self.get_type_display()} — {self.amount}"
+
+class Bid(models.Model):
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="bids", verbose_name="Заказ")
+    expert = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bids", verbose_name="Эксперт")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Ставка")
+    comment = models.TextField(blank=True, null=True, verbose_name="Комментарий")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+
+    class Meta:
+        verbose_name = "Ставка"
+        verbose_name_plural = "Ставки"
+        unique_together = ("order", "expert")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Bid {self.amount} by {self.expert_id} for order {self.order_id}"
 
 class Dispute(models.Model):
     order = models.OneToOneField(Order, on_delete=models.CASCADE)

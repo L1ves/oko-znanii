@@ -10,6 +10,7 @@ router.register('orders', views.OrderViewSet, basename='order')
 orders_router = routers.NestedDefaultRouter(router, 'orders', lookup='order')
 orders_router.register('files', views.OrderFileViewSet, basename='order-files')
 orders_router.register('comments', views.OrderCommentViewSet, basename='order-comments')
+orders_router.register('bids', views.BidViewSet, basename='order-bids')
 
 urlpatterns = [
     path('', include(router.urls)),

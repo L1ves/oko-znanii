@@ -3,6 +3,7 @@ import { Form, Input, Button, Card, Typography, message, Tabs, Select } from 'an
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { authApi, type LoginRequest, type RegisterRequest } from '../api/auth';
+import { ordersApi } from '../api/orders';
 
 const { Title, Text } = Typography;
 
@@ -10,12 +11,41 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Функция для проверки наличия заказов у клиента
+  const checkClientOrders = async (): Promise<boolean> => {
+    try {
+      const ordersData = await ordersApi.getClientOrders();
+      const orders = ordersData?.results || ordersData || [];
+      return orders.length > 0;
+    } catch (error) {
+      console.error('Ошибка при проверке заказов:', error);
+      return false;
+    }
+  };
+
+  // Функция для определения куда перенаправить клиента
+  const redirectClient = async () => {
+    const hasOrders = await checkClientOrders();
+    if (hasOrders) {
+      navigate('/dashboard');
+    } else {
+      navigate('/create-order');
+    }
+  };
+
   const onLogin = async (values: LoginRequest) => {
     setLoading(true);
     try {
-      await authApi.login(values);
+      const auth = await authApi.login(values);
       message.success('Успешный вход!');
-      navigate('/dashboard');
+      const role = auth?.user?.role;
+      if (role === 'client') {
+        await redirectClient();
+      } else if (role === 'expert') {
+        navigate('/expert');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (error: any) {
       message.error(error.response?.data?.detail || 'Ошибка входа');
     } finally {
@@ -32,8 +62,8 @@ const Login: React.FC = () => {
         phone: values.phone || undefined,
         password: values.password,
         password2: values.password2,
-        role: values.role
-      };
+        role: values.role || 'client',
+      } as RegisterRequest;
       
       console.log('Sending registration data:', cleanValues);
       
@@ -47,23 +77,39 @@ const Login: React.FC = () => {
       };
       
       try {
-        await authApi.login(loginData);
+        const auth = await authApi.login(loginData);
         message.success('Добро пожаловать!');
-        navigate('/create-order');
+        const role = auth?.user?.role;
+        if (role === 'client') {
+          await redirectClient();
+        } else if (role === 'expert') {
+          navigate('/expert');
+        } else {
+          navigate('/dashboard');
+        }
       } catch (loginError) {
         message.warning('Регистрация успешна, но не удалось войти автоматически. Войдите вручную.');
       }
     } catch (error: any) {
       console.error('Registration error:', error);
-      const errorData = error.response?.data;
-      if (typeof errorData === 'object') {
-        Object.values(errorData).forEach((errorMessages: any) => {
-          if (Array.isArray(errorMessages)) {
-            errorMessages.forEach((msg: string) => message.error(msg));
-          }
-        });
+      const errorData = error?.response?.data;
+      if (errorData && typeof errorData === 'object') {
+        const entries = Object.entries(errorData as Record<string, any>);
+        if (entries.length === 0) {
+          message.error('Ошибка регистрации');
+        } else {
+          entries.forEach(([_, v]) => {
+            if (Array.isArray(v)) {
+              v.forEach((msg) => message.error(String(msg)));
+            } else if (typeof v === 'string') {
+              message.error(v);
+            } else if (v && typeof v === 'object' && 'detail' in v) {
+              message.error(String(v.detail));
+            }
+          });
+        }
       } else {
-        message.error('Ошибка регистрации');
+        message.error(error?.message || 'Ошибка регистрации');
       }
     } finally {
       setLoading(false);

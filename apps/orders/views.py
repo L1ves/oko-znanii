@@ -4,8 +4,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import models
-from .models import Order, Transaction, Dispute, OrderFile, OrderComment
-from .serializers import OrderSerializer, TransactionSerializer, DisputeSerializer, OrderFileSerializer, OrderCommentSerializer
+from django.utils import timezone
+from .models import Order, Transaction, Dispute, OrderFile, OrderComment, Bid
+from .serializers import OrderSerializer, TransactionSerializer, DisputeSerializer, OrderFileSerializer, OrderCommentSerializer, BidSerializer
 from apps.notifications.services import NotificationService
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import FileResponse
@@ -22,16 +23,160 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        queryset = self.queryset.prefetch_related(
+            'bids__expert', 'files', 'comments', 'subject', 'topic', 'work_type', 'complexity'
+        ).select_related('client', 'expert')
+        
         if user.is_staff:
-            return self.queryset
-        return self.queryset.filter(
+            return queryset
+        return queryset.filter(
             models.Q(client=user) | models.Q(expert=user)
         )
 
     def perform_create(self, serializer):
+        # Дополнительная валидация дедлайна
+        deadline = serializer.validated_data.get('deadline')
+        if deadline and deadline <= timezone.now():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({
+                'deadline': 'Дедлайн не может быть в прошлом'
+            })
+        
         order = serializer.save()
         # Автоматически применяем лучшую доступную скидку
         DiscountService.apply_best_discount(order)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def available(self, request):
+        """Список доступных заказов для исполнителя (новые, без назначенного эксперта)."""
+        user = request.user
+        queryset = self.queryset.filter(status='new', expert__isnull=True).exclude(client=user).prefetch_related('bids__expert', 'files', 'comments')
+        
+        try:
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+                serializer = self.get_serializer(page, many=True)
+                return self.get_paginated_response(serializer.data)
+            serializer = self.get_serializer(queryset, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            # Логируем ошибку для отладки
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Ошибка при получении доступных заказов: {str(e)}")
+            
+            # Возвращаем пустой список вместо ошибки 500
+            return Response({
+                'results': [],
+                'count': 0,
+                'error': 'Произошла ошибка при загрузке заказов. Попробуйте позже.'
+            }, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def take(self, request, pk=None):
+        """Взять заказ в работу (только для роли expert)."""
+        # Не используем get_object(), чтобы не упереться в get_queryset с фильтрацией по пользователю
+        order = get_object_or_404(self.serializer_class.Meta.model, pk=pk)
+        user = request.user
+        # Простейшая проверка роли для MVP
+        if getattr(user, 'role', None) != 'expert':
+            return Response({'detail': 'Только эксперт может взять заказ.'}, status=status.HTTP_403_FORBIDDEN)
+        # Нельзя брать собственный заказ клиента
+        if getattr(order, 'client_id', None) == user.id:
+            return Response({'detail': 'Нельзя взять собственный заказ.'}, status=status.HTTP_400_BAD_REQUEST)
+        if order.expert_id:
+            return Response({'detail': 'У заказа уже есть назначенный эксперт.'}, status=status.HTTP_400_BAD_REQUEST)
+        if order.status != 'new':
+            return Response({'detail': 'Взять можно только заказ в статусе new.'}, status=status.HTTP_400_BAD_REQUEST)
+        order.expert = user
+        order.status = 'in_progress'
+        order.save(update_fields=['expert', 'status', 'updated_at'])
+        serializer = self.get_serializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def complete(self, request, pk=None):
+        """Завершить заказ (эксперт переводит в done)."""
+        order = self.get_object()
+        user = request.user
+        if getattr(user, 'role', None) != 'expert':
+            return Response({'detail': 'Только эксперт может завершать заказ.'}, status=status.HTTP_403_FORBIDDEN)
+        if order.expert_id != user.id:
+            return Response({'detail': 'Вы не являетесь исполнителем этого заказа.'}, status=status.HTTP_403_FORBIDDEN)
+        if order.status != 'in_progress':
+            return Response({'detail': 'Завершить можно только заказ в работе.'}, status=status.HTTP_400_BAD_REQUEST)
+        order.status = 'completed'
+        order.save(update_fields=['status', 'updated_at'])
+        serializer = self.get_serializer(order)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def submit(self, request, pk=None):
+        """Эксперт отправляет работу на проверку: in_progress -> review."""
+        order = self.get_object()
+        user = request.user
+        if getattr(user, 'role', None) != 'expert' or order.expert_id != user.id:
+            return Response({'detail': 'Недостаточно прав.'}, status=status.HTTP_403_FORBIDDEN)
+        if order.status not in ['in_progress', 'revision']:
+            return Response({'detail': 'Отправить на проверку можно только из статусов in_progress или revision.'}, status=status.HTTP_400_BAD_REQUEST)
+        order.status = 'review'
+        order.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(order).data)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def accept_bid(self, request, pk=None):
+        """Клиент принимает ставку: назначает эксперта и фиксирует бюджет."""
+        order = self.get_object()
+        user = request.user
+        if getattr(user, 'role', None) != 'client' or order.client_id != user.id:
+            return Response({'detail': 'Недостаточно прав.'}, status=status.HTTP_403_FORBIDDEN)
+        bid_id = request.data.get('bid_id')
+        if not bid_id:
+            return Response({'bid_id': 'Не указан ID ставки'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            bid = Bid.objects.select_related('expert', 'order').get(id=bid_id, order=order)
+        except Bid.DoesNotExist:
+            return Response({'detail': 'Ставка не найдена'}, status=status.HTTP_404_NOT_FOUND)
+        # Назначаем эксперта и согласованную цену
+        order.expert = bid.expert
+        order.budget = bid.amount
+        # Переводим заказ в in_progress, если он был в одном из допустимых статусов
+        # Добавили поддержку перехода из waiting_payment, чтобы после принятия ставки
+        # заказ гарантированно переходил в работу в типичных сценариях оплаты/подтверждения
+        if order.status in ['new', 'revision', 'review', 'waiting_payment']:
+            old_status = order.status
+            order.status = 'in_progress'
+            order.save(update_fields=['expert', 'budget', 'status', 'updated_at'])
+            NotificationService.notify_status_changed(order, old_status)
+        else:
+            order.save(update_fields=['expert', 'budget', 'updated_at'])
+        return Response(OrderSerializer(order).data)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def approve(self, request, pk=None):
+        """Клиент принимает работу: review -> completed."""
+        order = self.get_object()
+        user = request.user
+        if getattr(user, 'role', None) != 'client' or order.client_id != user.id:
+            return Response({'detail': 'Недостаточно прав.'}, status=status.HTTP_403_FORBIDDEN)
+        if order.status != 'review':
+            return Response({'detail': 'Принять можно только из статуса review.'}, status=status.HTTP_400_BAD_REQUEST)
+        order.status = 'completed'
+        order.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(order).data)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def revision(self, request, pk=None):
+        """Клиент отправляет на доработку: review -> revision."""
+        order = self.get_object()
+        user = request.user
+        if getattr(user, 'role', None) != 'client' or order.client_id != user.id:
+            return Response({'detail': 'Недостаточно прав.'}, status=status.HTTP_403_FORBIDDEN)
+        if order.status != 'review':
+            return Response({'detail': 'На доработку можно отправить только из статуса review.'}, status=status.HTTP_400_BAD_REQUEST)
+        order.status = 'revision'
+        order.save(update_fields=['status', 'updated_at'])
+        return Response(self.get_serializer(order).data)
 
     @action(detail=True, methods=['post'])
     def apply_discount(self, request, pk=None):
@@ -219,3 +364,50 @@ class OrderCommentViewSet(viewsets.ModelViewSet):
             author=self.request.user
         )
         NotificationService.notify_new_comment(comment)
+
+class BidViewSet(viewsets.ModelViewSet):
+    serializer_class = BidSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        order_id = self.kwargs['order_pk']
+        order = get_object_or_404(Order, id=order_id)
+        user = self.request.user
+        
+        # Проверяем права доступа - клиент может видеть ставки по своим заказам
+        if order.client_id != user.id and getattr(user, 'role', None) != 'expert' and not user.is_staff:
+            return Bid.objects.none()
+        
+        return Bid.objects.filter(order_id=order_id).select_related('expert', 'order')
+
+    def perform_create(self, serializer):
+        order_id = self.kwargs['order_pk']
+        order = get_object_or_404(Order, id=order_id)
+        
+        # Проверяем права
+        user = self.request.user
+        if getattr(user, 'role', None) != 'expert':
+            raise permissions.PermissionDenied('Только эксперт может делать ставку.')
+        
+        if order.client_id == user.id:
+            raise permissions.PermissionDenied('Нельзя ставить на свой заказ.')
+        
+        if order.status not in ['new', 'in_progress', 'revision', 'review']:
+            raise permissions.PermissionDenied('Нельзя сделать ставку для текущего статуса заказа.')
+        
+        # Если эксперт уже назначен и это не он
+        if order.expert_id and order.expert_id != user.id:
+            raise permissions.PermissionDenied('У заказа уже есть назначенный эксперт.')
+        
+        # Создаем или обновляем ставку
+        bid, created = Bid.objects.get_or_create(
+            order=order, 
+            expert=user, 
+            defaults=serializer.validated_data
+        )
+        if not created:
+            for attr, value in serializer.validated_data.items():
+                setattr(bid, attr, value)
+            bid.save()
+        
+        return bid

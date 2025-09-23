@@ -20,6 +20,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import CreateOrder from './pages/CreateOrder';
 import ClientDashboard from './pages/ClientDashboard';
+import ExpertDashboard from './pages/ExpertDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Configure dayjs
@@ -57,6 +58,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <ClientDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/expert" 
+                element={
+                  <ProtectedRoute>
+                    <ExpertDashboard />
                   </ProtectedRoute>
                 } 
               />

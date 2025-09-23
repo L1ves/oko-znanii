@@ -44,6 +44,19 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         return super().get_permissions()
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            # Возвращаем сведения о пользователе после регистрации
+            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+        # Логируем ошибки валидации для дебага 400 ошибок
+        try:
+            print("[User Registration] validation errors:", serializer.errors)
+        except Exception:
+            pass
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     @action(detail=False, methods=['post'])
     def reset_password(self, request):
         serializer = PasswordResetSerializer(data=request.data)
@@ -135,7 +148,7 @@ class UserViewSet(viewsets.ModelViewSet):
             )
         
         # Получаем заказы клиента
-        orders = user.client_orders.all()
+        orders = user.client_orders.prefetch_related('bids__expert', 'files', 'comments').all()
         
         # Статистика
         statistics = {
@@ -160,8 +173,8 @@ class UserViewSet(viewsets.ModelViewSet):
         
         return Response({
             'statistics': statistics,
-            'recent_orders': OrderSerializer(recent_orders, many=True).data,
-            'active_orders': OrderSerializer(active_orders, many=True).data,
+            'recent_orders': OrderSerializer(recent_orders, many=True, context={'request': request}).data,
+            'active_orders': OrderSerializer(active_orders, many=True, context={'request': request}).data,
         })
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
@@ -176,7 +189,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        orders = user.client_orders.all()
+        orders = user.client_orders.prefetch_related('bids__expert', 'files', 'comments').all()
         
         # Фильтрация по статусу
         status_filter = request.query_params.get('status')
@@ -190,10 +203,10 @@ class UserViewSet(viewsets.ModelViewSet):
         # Пагинация
         page = self.paginate_queryset(orders)
         if page is not None:
-            serializer = OrderSerializer(page, many=True)
+            serializer = OrderSerializer(page, many=True, context={'request': request})
             return self.get_paginated_response(serializer.data)
         
-        serializer = OrderSerializer(orders, many=True)
+        serializer = OrderSerializer(orders, many=True, context={'request': request})
         return Response(serializer.data)
 
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
