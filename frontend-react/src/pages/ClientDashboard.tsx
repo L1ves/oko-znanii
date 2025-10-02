@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Row, Col, Statistic, List, Button, Tag, Spin, Alert, Empty, message, Space, Modal, Input } from 'antd';
+import { Card, Row, Col, Statistic, List, Button, Tag, Spin, Alert, Empty, message, Space, Modal, Input, Upload, Rate } from 'antd';
 import { 
   PlusOutlined, 
   ClockCircleOutlined, 
@@ -9,6 +9,8 @@ import {
   FileTextOutlined,
   EyeOutlined
 } from '@ant-design/icons';
+import { UploadOutlined } from '@ant-design/icons';
+import { expertsApi, type ExpertStatistics } from '../api/experts';
 import { useNavigate } from 'react-router-dom';
 import { ordersApi, type Order, type OrderFile, type Bid, type OrderComment } from '../api/orders';
 import { authApi, type User } from '../api/auth';
@@ -286,6 +288,23 @@ const ClientDashboard: React.FC = () => {
                   >
                     Подробнее
                   </Button>,
+                  (order.status === 'new' || order.status === 'in_progress') && (
+                    <Upload
+                      beforeUpload={async (file) => {
+                        try {
+                          await ordersApi.uploadOrderFile(order.id, file, { file_type: 'task' });
+                          message.success('Файл прикреплен');
+                          refetch();
+                        } catch (e: any) {
+                          message.error(e?.response?.data?.detail || 'Ошибка загрузки файла');
+                        }
+                        return false;
+                      }}
+                      showUploadList={false}
+                    >
+                      <Button icon={<UploadOutlined />}>Прикрепить файл</Button>
+                    </Upload>
+                  ),
                   order.status === 'review' && (
                     <Button
                       type="primary"
@@ -317,6 +336,46 @@ const ClientDashboard: React.FC = () => {
                     >
                       На доработку
                     </Button>
+                  ),
+                  order.status === 'completed' && (
+                    <Button
+                      onClick={() => {
+                        let ratingValue = 5;
+                        let commentValue = '';
+                        Modal.confirm({
+                          title: 'Оценить работу эксперта',
+                          content: (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                              <div>
+                                <div style={{ marginBottom: 8 }}>Оценка:</div>
+                                <Rate defaultValue={5} onChange={(v) => (ratingValue = v)} />
+                              </div>
+                              <div>
+                                <div style={{ marginBottom: 8 }}>Комментарий (необязательно):</div>
+                                <Input.TextArea
+                                  rows={3}
+                                  placeholder="Поделитесь впечатлением"
+                                  onChange={(e) => (commentValue = e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          ),
+                          okText: 'Отправить',
+                          cancelText: 'Отмена',
+                          onOk: async () => {
+                            try {
+                              await expertsApi.rateExpert({ order: order.id, rating: ratingValue, comment: commentValue || undefined });
+                              message.success('Оценка отправлена');
+                              refetch();
+                            } catch (e: any) {
+                              message.error(e?.response?.data?.detail || 'Не удалось отправить оценку');
+                            }
+                          },
+                        });
+                      }}
+                    >
+                      Оценить
+                    </Button>
                   )
                 ]}
               >
@@ -337,6 +396,18 @@ const ClientDashboard: React.FC = () => {
                         <span><strong>Тема:</strong> {order.topic?.name}</span>
                         <span><strong>Тип работы:</strong> {order.work_type?.name}</span>
                       </div>
+                      {order.expert && (
+                        <div style={{ marginTop: '8px' }}>
+                          <strong>Исполнитель:</strong>{' '}
+                          <Button 
+                            type="link" 
+                            style={{ padding: 0, height: 'auto' }}
+                            onClick={() => navigate(`/expert/${order.expert?.id}`)}
+                          >
+                            {order.expert?.username || `Эксперт #${order.expert?.id}`}
+                          </Button>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
                         <span><strong>Бюджет:</strong> {order.budget} ₽</span>
                         <span><strong>Срок:</strong> {dayjs(order.deadline).format('DD.MM.YYYY')}</span>
@@ -367,25 +438,7 @@ const ClientDashboard: React.FC = () => {
                         {Array.isArray(order.bids) && order.bids.length > 0 ? (
                           <ul style={{ marginTop: 8 }}>
                             {order.bids.map((b: Bid) => (
-                              <li key={b.id} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                                <span>{b.expert?.username || `Эксперт #${b.expert?.id}`}: {b.amount} ₽</span>
-                                {b.comment && <span style={{ color: '#666', fontSize: '12px' }}>({b.comment})</span>}
-                                <Button size="small" onClick={() => {
-                                  Modal.confirm({
-                                    title: 'Принять ставку',
-                                    content: `Вы уверены, что хотите принять ставку ${b.amount} ₽ от ${b.expert?.username || `эксперта #${b.expert?.id}`}?`,
-                                    onOk: async () => {
-                                      try {
-                                        await ordersApi.acceptBid(order.id, b.id);
-                                        message.success('Ставка принята, исполнитель назначен');
-                                        refetch();
-                                      } catch (e: any) {
-                                        message.error(e?.response?.data?.detail || 'Не удалось принять ставку');
-                                      }
-                                    }
-                                  });
-                                }}>Принять</Button>
-                              </li>
+                              <ExpertBidCard key={b.id} bid={b} orderId={order.id} onAccept={refetch} />
                             ))}
                           </ul>
                         ) : (
@@ -491,5 +544,73 @@ const OrderChat: React.FC<{ orderId: number }> = ({ orderId }) => {
         </Button>
       </div>
     </div>
+  );
+};
+
+// Компонент карточки ставки эксперта с рейтингом
+const ExpertBidCard: React.FC<{ bid: Bid; orderId: number; onAccept: () => void }> = ({ bid, orderId, onAccept }) => {
+  const navigate = useNavigate();
+  const [expertStats, setExpertStats] = React.useState<ExpertStatistics | null>(null);
+  const [loadingStats, setLoadingStats] = React.useState(false);
+
+  React.useEffect(() => {
+    if (bid.expert?.id) {
+      setLoadingStats(true);
+      expertsApi.getExpertStatistics(bid.expert.id)
+        .then(stats => setExpertStats(stats))
+        .catch(() => setExpertStats(null))
+        .finally(() => setLoadingStats(false));
+    }
+  }, [bid.expert?.id]);
+
+  return (
+    <li style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, padding: 8, border: '1px solid #f0f0f0', borderRadius: 6 }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <Button 
+            type="link" 
+            style={{ padding: 0, height: 'auto' }}
+            onClick={() => navigate(`/expert/${bid.expert?.id}`)}
+          >
+            <span><strong>{bid.expert?.username || `Эксперт #${bid.expert?.id}`}</strong></span>
+          </Button>
+          {loadingStats ? (
+            <Spin size="small" />
+          ) : expertStats?.average_rating ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Rate disabled value={expertStats.average_rating} style={{ fontSize: 12 }} />
+              <span style={{ fontSize: 12, color: '#666' }}>
+                {expertStats.average_rating.toFixed(1)} ({expertStats.completed_orders} заказов)
+              </span>
+            </div>
+          ) : null}
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 'bold', color: '#52c41a' }}>
+          {bid.amount} ₽
+        </div>
+        {bid.comment && (
+          <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
+            {bid.comment}
+          </div>
+        )}
+      </div>
+      <Button size="small" type="primary" onClick={() => {
+        Modal.confirm({
+          title: 'Принять ставку',
+          content: `Вы уверены, что хотите принять ставку ${bid.amount} ₽ от ${bid.expert?.username || `эксперта #${bid.expert?.id}`}?`,
+          onOk: async () => {
+            try {
+              await ordersApi.acceptBid(orderId, bid.id);
+              message.success('Ставка принята, исполнитель назначен');
+              onAccept();
+            } catch (e: any) {
+              message.error(e?.response?.data?.detail || 'Не удалось принять ставку');
+            }
+          }
+        });
+      }}>
+        Принять
+      </Button>
+    </li>
   );
 };

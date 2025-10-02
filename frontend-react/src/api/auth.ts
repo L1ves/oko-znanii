@@ -27,6 +27,13 @@ export interface User {
   date_joined: string;
   last_login?: string;
   specializations: any[];
+  bio?: string;
+  experience_years?: number;
+  hourly_rate?: number;
+  education?: string;
+  skills?: string;
+  portfolio_url?: string;
+  is_verified?: boolean;
 }
 
 export interface AuthResponse {
@@ -72,6 +79,12 @@ export const authApi = {
     const response = await apiClient.post('/users/token/refresh/', { refresh });
     const { access } = response.data;
     localStorage.setItem('access_token', access);
+    return response.data;
+  },
+
+  // Обновить профиль
+  updateProfile: async (data: Partial<User>): Promise<User> => {
+    const response = await apiClient.patch('/users/update_me/', data);
     return response.data;
   },
 };

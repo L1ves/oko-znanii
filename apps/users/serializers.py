@@ -13,9 +13,11 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 
             'role', 'phone', 'telegram_id', 'balance', 'frozen_balance',
-            'date_joined', 'last_login', 'specializations'
+            'date_joined', 'last_login', 'specializations',
+            'avatar', 'bio', 'experience_years', 'hourly_rate', 'education', 
+            'skills', 'portfolio_url', 'is_verified'
         ]
-        read_only_fields = ['email', 'date_joined', 'last_login']
+        read_only_fields = ['email', 'date_joined', 'last_login', 'is_verified']
     
     def get_specializations(self, obj):
         """Возвращает специализации только для экспертов"""
@@ -86,7 +88,11 @@ class UserCreateSerializer(serializers.Serializer):
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'telegram_id']
+        fields = [
+            'first_name', 'last_name', 'telegram_id', 'avatar',
+            'bio', 'experience_years', 'hourly_rate', 
+            'education', 'skills', 'portfolio_url'
+        ]
 
 class PasswordResetSerializer(serializers.Serializer):
     email = serializers.EmailField()

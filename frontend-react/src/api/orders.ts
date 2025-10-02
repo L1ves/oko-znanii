@@ -35,6 +35,12 @@ export interface Order {
     id: number;
     name: string;
   };
+  expert?: {
+    id: number;
+    username: string;
+    first_name: string;
+    last_name: string;
+  };
   created_at: string;
   updated_at: string;
   files?: OrderFile[];

@@ -1,11 +1,29 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, List, Typography, Tag, message, Upload, Space, InputNumber, Input, Spin } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { Button, Card, List, Typography, Tag, message, Upload, Space, InputNumber, Input, Spin, Modal, Form, InputNumber as AntInputNumber } from 'antd';
+import { UploadOutlined, UserOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { ordersApi, type Order, type OrderComment } from '../api/orders';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
+
+interface UserProfile {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  phone: string;
+  avatar?: string;
+  bio?: string;
+  experience_years?: number;
+  hourly_rate?: number;
+  education?: string;
+  skills?: string;
+  portfolio_url?: string;
+  is_verified?: boolean;
+}
 
 const { Title, Text } = Typography;
 
@@ -13,6 +31,9 @@ const ExpertDashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [bidLoading, setBidLoading] = useState<Record<number, boolean>>({});
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [form] = Form.useForm();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['available-orders'],
@@ -28,6 +49,18 @@ const ExpertDashboard: React.FC = () => {
     queryKey: ['my-orders-completed'],
     queryFn: () => ordersApi.getMyOrders({ status: 'completed' }),
   });
+
+  // Загружаем профиль пользователя
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile'],
+    queryFn: () => authApi.getCurrentUser(),
+  });
+
+  React.useEffect(() => {
+    if (userProfile) {
+      setProfile(userProfile);
+    }
+  }, [userProfile]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -74,6 +107,7 @@ const ExpertDashboard: React.FC = () => {
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>Кабинет эксперта</Title>
         <Space>
+          <Button onClick={() => setProfileModalVisible(true)}>Редактировать профиль</Button>
           <Button onClick={() => navigate(-1)}>Назад</Button>
           <Button
             onClick={() => {
@@ -258,6 +292,116 @@ const ExpertDashboard: React.FC = () => {
           </List.Item>
         )}
       />
+
+      {/* Модальное окно редактирования профиля */}
+      <Modal
+        title="Редактировать профиль"
+        open={profileModalVisible}
+        onCancel={() => setProfileModalVisible(false)}
+        onOk={() => form.submit()}
+        width={600}
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={profile || {}}
+          onFinish={async (values) => {
+            try {
+              await authApi.updateProfile(values);
+              message.success('Профиль обновлен');
+              setProfileModalVisible(false);
+              queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+            } catch (e: any) {
+              message.error(e?.response?.data?.detail || 'Не удалось обновить профиль');
+            }
+          }}
+        >
+          <Form.Item label="Аватар" name="avatar">
+            <Upload
+              name="avatar"
+              listType="picture-card"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                const isImage = file.type.startsWith('image/');
+                if (!isImage) {
+                  message.error('Можно загружать только изображения!');
+                  return false;
+                }
+                const isLt2M = file.size / 1024 / 1024 < 2;
+                if (!isLt2M) {
+                  message.error('Размер файла должен быть меньше 2MB!');
+                  return false;
+                }
+                return true;
+              }}
+              customRequest={async ({ file, onSuccess, onError }) => {
+                try {
+                  const formData = new FormData();
+                  formData.append('avatar', file as File);
+                  
+                  const response = await fetch('http://localhost:8000/api/users/update_me/', {
+                    method: 'PATCH',
+                    headers: {
+                      'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                    },
+                    body: formData,
+                  });
+                  
+                  if (response.ok) {
+                    const result = await response.json();
+                    form.setFieldsValue({ avatar: result.avatar });
+                    onSuccess?.(result);
+                    message.success('Аватар обновлен!');
+                    queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+                  } else {
+                    throw new Error('Ошибка загрузки');
+                  }
+                } catch (error) {
+                  onError?.(error as Error);
+                  message.error('Не удалось загрузить аватар');
+                }
+              }}
+            >
+              {profile?.avatar ? (
+                <img 
+                  src={`http://localhost:8000${profile.avatar}`} 
+                  alt="avatar" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div>
+                  <UserOutlined />
+                  <div style={{ marginTop: 8 }}>Загрузить</div>
+                </div>
+              )}
+            </Upload>
+          </Form.Item>
+          <Form.Item label="Имя" name="first_name">
+            <Input />
+          </Form.Item>
+          <Form.Item label="Фамилия" name="last_name">
+            <Input />
+          </Form.Item>
+          <Form.Item label="О себе" name="bio">
+            <Input.TextArea rows={4} placeholder="Расскажите о себе, своем опыте и специализации" />
+          </Form.Item>
+          <Form.Item label="Опыт работы (лет)" name="experience_years">
+            <AntInputNumber min={0} max={50} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="Почасовая ставка (₽)" name="hourly_rate">
+            <AntInputNumber min={0} step={100} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="Образование" name="education">
+            <Input.TextArea rows={3} placeholder="Укажите ваше образование и квалификации" />
+          </Form.Item>
+          <Form.Item label="Навыки" name="skills">
+            <Input.TextArea rows={3} placeholder="Перечислите ваши навыки и компетенции" />
+          </Form.Item>
+          <Form.Item label="Портфолио (ссылка)" name="portfolio_url">
+            <Input placeholder="https://example.com/portfolio" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };

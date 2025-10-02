@@ -42,6 +42,8 @@ class UserViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'reset_password', 'reset_password_confirm']:
             return [permissions.AllowAny()]
+        if self.action == 'retrieve':
+            return [permissions.AllowAny()]  # Публичный доступ к профилям
         return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
@@ -241,3 +243,15 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except Exception:
             return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    def retrieve(self, request, pk=None):
+        """Получить данные пользователя по ID (публичный доступ)"""
+        try:
+            user = User.objects.get(pk=pk)
+            serializer = self.get_serializer(user)
+            return Response(serializer.data)
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Пользователь не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
