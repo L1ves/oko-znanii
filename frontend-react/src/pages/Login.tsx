@@ -9,7 +9,16 @@ const { Title, Text } = Typography;
 
 const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [registerForm] = Form.useForm();
   const navigate = useNavigate();
+  
+  // Автоматически подставляем реферальный код при загрузке
+  React.useEffect(() => {
+    const savedReferralCode = localStorage.getItem('referral_code');
+    if (savedReferralCode) {
+      registerForm.setFieldsValue({ referral_code: savedReferralCode });
+    }
+  }, [registerForm]);
 
   // Функция для проверки наличия заказов у клиента
   const checkClientOrders = async (): Promise<boolean> => {
@@ -43,6 +52,12 @@ const Login: React.FC = () => {
         await redirectClient();
       } else if (role === 'expert') {
         navigate('/expert');
+      } else if (role === 'partner') {
+        navigate('/partner');
+      } else if (role === 'admin') {
+        navigate('/admin');
+      } else if (role === 'arbitrator') {
+        navigate('/arbitrator');
       } else {
         navigate('/dashboard');
       }
@@ -84,6 +99,8 @@ const Login: React.FC = () => {
           await redirectClient();
         } else if (role === 'expert') {
           navigate('/expert');
+        } else if (role === 'partner') {
+          navigate('/partner');
         } else {
           navigate('/dashboard');
         }
@@ -138,8 +155,8 @@ const Login: React.FC = () => {
     </Form>
   );
 
-  const registerForm = (
-    <Form onFinish={onRegister} layout="vertical">
+  const registerFormComponent = (
+    <Form form={registerForm} onFinish={onRegister} layout="vertical">
       <Form.Item 
         name="email" 
         rules={[
@@ -203,7 +220,16 @@ const Login: React.FC = () => {
         <Select placeholder="Выберите роль">
           <Select.Option value="client">Клиент</Select.Option>
           <Select.Option value="expert">Эксперт</Select.Option>
+          <Select.Option value="partner">Партнер</Select.Option>
+          <Select.Option value="arbitrator">Арбитр</Select.Option>
+          <Select.Option value="admin">Администратор</Select.Option>
         </Select>
+      </Form.Item>
+      <Form.Item
+        name="referral_code"
+        label="Реферальный код (необязательно)"
+      >
+        <Input placeholder="Введите реферальный код, если есть" />
       </Form.Item>
       <Form.Item>
         <Button type="primary" htmlType="submit" loading={loading} block>
@@ -238,7 +264,7 @@ const Login: React.FC = () => {
             {
               key: 'register',
               label: 'Регистрация',
-              children: registerForm,
+              children: registerFormComponent,
             },
           ]}
         />

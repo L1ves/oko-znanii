@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Header from '../components/landing/sections/Header';
 import FirstScreen from '../components/landing/sections/FirstScreen';
 import PlaceTask from '../components/landing/sections/PlaceTask';
@@ -12,6 +13,16 @@ import PlaceTaskInfo from '../components/landing/sections/PlaceTaskInfo';
 import Footer from '../components/landing/sections/Footer';
 
 const Home: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  
+  useEffect(() => {
+    // Сохраняем реферальный код из URL в localStorage
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      localStorage.setItem('referral_code', refCode);
+      console.log('Реферальный код сохранен:', refCode);
+    }
+  }, [searchParams]);
   return (
     <>
       <Header />

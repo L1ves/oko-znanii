@@ -181,7 +181,9 @@ $RECYCLE.BIN/
 *.msi
 *.msm
 *.msp
-
+#Plans
+todo.md
+DEVELOPMENT_PLAN.md
 # Linux
 *~
 .directory

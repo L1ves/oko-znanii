@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import { UploadOutlined } from '@ant-design/icons';
 import { expertsApi, type ExpertStatistics } from '../api/experts';
+import { disputesApi } from '../api/disputes';
 import { useNavigate } from 'react-router-dom';
 import { ordersApi, type Order, type OrderFile, type Bid, type OrderComment } from '../api/orders';
 import { authApi, type User } from '../api/auth';
@@ -337,7 +338,7 @@ const ClientDashboard: React.FC = () => {
                       На доработку
                     </Button>
                   ),
-                  order.status === 'completed' && (
+                  order.status === 'completed' && !order.expert_rating && (
                     <Button
                       onClick={() => {
                         let ratingValue = 5;
@@ -376,6 +377,56 @@ const ClientDashboard: React.FC = () => {
                     >
                       Оценить
                     </Button>
+                  ),
+                  order.status === 'completed' && order.expert_rating && (
+                    <span style={{ color: '#52c41a', fontSize: 12 }}>
+                      ✓ Оценка оставлена
+                    </span>
+                  ),
+                  (order.status === 'completed' || order.status === 'review') && !order.dispute && (
+                    <Button
+                      danger
+                      onClick={() => {
+                        let reasonValue = '';
+                        Modal.confirm({
+                          title: 'Создать спор',
+                          content: (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                              <div>
+                                <div style={{ marginBottom: 8 }}>Причина спора:</div>
+                                <Input.TextArea
+                                  rows={4}
+                                  placeholder="Опишите проблему с выполненной работой..."
+                                  onChange={(e) => (reasonValue = e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          ),
+                          okText: 'Создать спор',
+                          cancelText: 'Отмена',
+                          onOk: async () => {
+                            if (!reasonValue.trim()) {
+                              message.error('Укажите причину спора');
+                              return;
+                            }
+                            try {
+                              await disputesApi.createDispute(order.id, { reason: reasonValue });
+                              message.success('Спор создан. Администратор рассмотрит его в ближайшее время.');
+                              refetch();
+                            } catch (e: any) {
+                              message.error(e?.response?.data?.error || 'Не удалось создать спор');
+                            }
+                          },
+                        });
+                      }}
+                    >
+                      Создать спор
+                    </Button>
+                  ),
+                  order.dispute && (
+                    <Tag color="orange">
+                      Спор создан
+                    </Tag>
                   )
                 ]}
               >
@@ -578,9 +629,9 @@ const ExpertBidCard: React.FC<{ bid: Bid; orderId: number; onAccept: () => void 
             <Spin size="small" />
           ) : expertStats?.average_rating ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Rate disabled value={expertStats.average_rating} style={{ fontSize: 12 }} />
+              <Rate disabled value={Number(expertStats.average_rating)} style={{ fontSize: 12 }} />
               <span style={{ fontSize: 12, color: '#666' }}>
-                {expertStats.average_rating.toFixed(1)} ({expertStats.completed_orders} заказов)
+                {Number(expertStats.average_rating).toFixed(1)} ({expertStats.completed_orders} заказов)
               </span>
             </div>
           ) : null}

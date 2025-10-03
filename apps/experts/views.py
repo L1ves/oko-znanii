@@ -139,6 +139,16 @@ class ExpertRatingViewSet(viewsets.ModelViewSet):
             'expert', 'client', 'order'
         ).all()
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        # Логируем ошибки валидации для дебага
+        print("[Expert Rating] validation errors:", serializer.errors)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def perform_create(self, serializer):
         rating = serializer.save(
             client=self.request.user,
@@ -155,11 +165,31 @@ class ExpertStatisticsViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        queryset = ExpertStatistics.objects.all()
+        
+        # Фильтрация по эксперту
+        expert_id = self.request.query_params.get('expert')
+        if expert_id:
+            queryset = queryset.filter(expert_id=expert_id)
+            # Создаем статистику если её нет
+            if not queryset.exists():
+                from apps.users.models import User
+                try:
+                    expert = User.objects.get(id=expert_id, role='expert')
+                    stats, created = ExpertStatistics.objects.get_or_create(expert=expert)
+                    if created:
+                        stats.update_statistics()
+                    queryset = ExpertStatistics.objects.filter(expert_id=expert_id)
+                except User.DoesNotExist:
+                    pass
+        
         if self.request.user.is_staff:
-            return ExpertStatistics.objects.all()
+            return queryset
         if self.request.user.role == 'expert':
-            return ExpertStatistics.objects.filter(expert=self.request.user)
-        return ExpertStatistics.objects.none()
+            return queryset.filter(expert=self.request.user)
+        
+        # Для обычных пользователей показываем только статистику, если она есть
+        return queryset
 
     @action(detail=False, methods=['get'])
     def my_statistics(self, request):

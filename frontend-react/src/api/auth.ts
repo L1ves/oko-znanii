@@ -10,7 +10,8 @@ export interface RegisterRequest {
   phone?: string;
   password: string;
   password2: string;
-  role: 'client' | 'expert';
+  role: 'client' | 'expert' | 'partner';
+  referral_code?: string;
 }
 
 export interface User {

@@ -13,6 +13,8 @@ class NotificationType(models.TextChoices):
     DOCUMENT_VERIFIED = 'document_verified', 'Документ проверен'
     SPECIALIZATION_VERIFIED = 'specialization_verified', 'Специализация подтверждена'
     REVIEW_RECEIVED = 'review_received', 'Получен отзыв'
+    NEW_RATING = 'new_rating', 'Новый рейтинг'
+    RATING_MILESTONE = 'rating_milestone', 'Достижение рейтинга'
     PAYMENT_RECEIVED = 'payment_received', 'Получена оплата'
     ORDER_COMPLETED = 'order_completed', 'Заказ завершен'
     NEW_CONTACT = 'new_contact', 'Новое обращение'

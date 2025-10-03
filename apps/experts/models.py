@@ -291,13 +291,18 @@ class ExpertStatistics(models.Model):
         # Обновляем рейтинг
         ratings = ExpertRating.objects.filter(expert=self.expert)
         if ratings.exists():
-            self.average_rating = ratings.aggregate(
+            avg_rating = ratings.aggregate(
                 avg_rating=models.Avg('rating')
             )['avg_rating']
+            self.average_rating = round(float(avg_rating), 2) if avg_rating else 0
+        else:
+            self.average_rating = 0
         
         # Обновляем процент успешных заказов
         if self.total_orders > 0:
-            self.success_rate = (self.completed_orders / self.total_orders) * 100
+            self.success_rate = round((self.completed_orders / self.total_orders) * 100, 2)
+        else:
+            self.success_rate = 0
         
         # Обновляем общий заработок
         from apps.orders.models import Transaction

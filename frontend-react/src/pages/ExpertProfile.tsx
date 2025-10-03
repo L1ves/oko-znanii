@@ -35,7 +35,10 @@ const ExpertProfile: React.FC = () => {
 
   React.useEffect(() => {
     if (expertData) setExpert(expertData);
-    if (statsData) setExpertStats(statsData);
+    if (statsData) {
+      console.log('Expert stats loaded:', statsData);
+      setExpertStats(statsData);
+    }
   }, [expertData, statsData]);
 
   if (expertLoading) {
@@ -167,9 +170,9 @@ const ExpertProfile: React.FC = () => {
               <div>
                 <div style={{ textAlign: 'center', marginBottom: 16 }}>
                   <div style={{ fontSize: 32, fontWeight: 'bold', color: '#1890ff' }}>
-                    {expertStats.average_rating?.toFixed(1) || 'Н/Д'}
+                    {expertStats.average_rating ? Number(expertStats.average_rating).toFixed(1) : 'Н/Д'}
                   </div>
-                  <Rate disabled value={expertStats.average_rating || 0} style={{ fontSize: 16 }} />
+                  <Rate disabled value={Number(expertStats.average_rating) || 0} style={{ fontSize: 16 }} />
                   <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
                     на основе {expertStats.completed_orders} заказов
                   </div>

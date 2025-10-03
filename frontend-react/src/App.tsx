@@ -22,6 +22,9 @@ import CreateOrder from './pages/CreateOrder';
 import ClientDashboard from './pages/ClientDashboard';
 import ExpertDashboard from './pages/ExpertDashboard';
 import ExpertProfile from './pages/ExpertProfile';
+import PartnerDashboard from './pages/PartnerDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import ArbitratorDashboard from './pages/ArbitratorDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Configure dayjs
@@ -73,6 +76,30 @@ const App: React.FC = () => {
               <Route 
                 path="/expert/:expertId" 
                 element={<ExpertProfile />} 
+              />
+              <Route 
+                path="/partner" 
+                element={
+                  <ProtectedRoute>
+                    <PartnerDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/admin" 
+                element={
+                  <ProtectedRoute>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/arbitrator" 
+                element={
+                  <ProtectedRoute>
+                    <ArbitratorDashboard />
+                  </ProtectedRoute>
+                } 
               />
             </Routes>
           </div>

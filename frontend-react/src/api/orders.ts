@@ -45,6 +45,16 @@ export interface Order {
   updated_at: string;
   files?: OrderFile[];
   bids?: Bid[];
+  expert_rating?: {
+    id: number;
+    rating: number;
+    comment?: string;
+    created_at: string;
+  };
+  dispute?: {
+    id: number;
+    resolved: boolean;
+  };
 }
 
 export interface CreateOrderRequest {

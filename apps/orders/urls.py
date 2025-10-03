@@ -5,6 +5,7 @@ from . import views
 
 router = routers.DefaultRouter()
 router.register('orders', views.OrderViewSet, basename='order')
+router.register('disputes', views.DisputeViewSet, basename='dispute')
 
 # Вложенные маршруты для файлов и комментариев
 orders_router = routers.NestedDefaultRouter(router, 'orders', lookup='order')

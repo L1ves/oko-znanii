@@ -13,9 +13,11 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 
             'role', 'phone', 'telegram_id', 'balance', 'frozen_balance',
-            'date_joined', 'last_login', 'specializations',
+            'date_joined', 'last_login', 'specializations', 'partner',
             'avatar', 'bio', 'experience_years', 'hourly_rate', 'education', 
-            'skills', 'portfolio_url', 'is_verified'
+            'skills', 'portfolio_url', 'is_verified',
+            'referral_code', 'partner_commission_rate', 'total_referrals', 
+            'active_referrals', 'total_earnings'
         ]
         read_only_fields = ['email', 'date_joined', 'last_login', 'is_verified']
     
@@ -32,7 +34,8 @@ class UserCreateSerializer(serializers.Serializer):
     phone = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
-    role = serializers.ChoiceField(choices=[('client', 'Клиент'), ('expert', 'Специалист')])
+    role = serializers.ChoiceField(choices=[('client', 'Клиент'), ('expert', 'Специалист'), ('partner', 'Партнер')])
+    referral_code = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
         # Должен быть email или телефон
@@ -58,6 +61,7 @@ class UserCreateSerializer(serializers.Serializer):
         phone = validated_data.get('phone', '')
         password = validated_data.get('password')
         role = validated_data.get('role')
+        referral_code = validated_data.pop('referral_code', None)
         # Удаляем вспомогательные поля
         validated_data.pop('password2', None)
 
@@ -75,13 +79,27 @@ class UserCreateSerializer(serializers.Serializer):
             username = f"{base_username}{suffix}"
             suffix += 1
 
+        # Ищем партнера по реферальному коду
+        partner = None
+        if referral_code:
+            try:
+                partner = User.objects.get(referral_code=referral_code, role='partner')
+            except User.DoesNotExist:
+                pass  # Игнорируем неверный реферальный код
+
         user = User.objects.create_user(
             username=username,
             email=email or None,
             phone=phone or None,
             password=password,
             role=role,
+            partner=partner,
         )
+        
+        # Обновляем статистику партнера
+        if partner:
+            partner.total_referrals += 1
+            partner.save()
 
         return user
 
@@ -110,20 +128,28 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        # Поддерживаем вход только по email или телефону
+        # Поддерживаем вход по username, email или телефону
         username = attrs.get('username')
         password = attrs.get('password')
         
-        # Пытаемся найти пользователя по email или телефону
+        # Пытаемся найти пользователя по username, email или телефону
         user = None
-        if '@' in username:
-            # Если содержит @, ищем по email
+        
+        # Сначала пробуем по username
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            pass
+        
+        # Если не найден по username, пробуем по email
+        if not user and '@' in username:
             try:
                 user = User.objects.get(email=username)
             except User.DoesNotExist:
                 pass
-        elif username.startswith('+') or username.replace('+', '').replace('-', '').replace(' ', '').isdigit():
-            # Если похоже на телефон, ищем по телефону
+        
+        # Если не найден по email, пробуем по телефону
+        if not user and (username.startswith('+') or username.replace('+', '').replace('-', '').replace(' ', '').isdigit()):
             try:
                 user = User.objects.get(phone=username)
             except User.DoesNotExist:

@@ -170,6 +170,15 @@ class OrderSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         
+        # Добавляем информацию о споре, если он существует
+        if hasattr(instance, 'dispute') and instance.dispute:
+            data['dispute'] = {
+                'id': instance.dispute.id,
+                'resolved': instance.dispute.resolved
+            }
+        else:
+            data['dispute'] = None
+        
         # Показываем произвольную тему, если она есть
         if instance.custom_topic:
             data['topic'] = {
@@ -229,8 +238,23 @@ class TransactionSerializer(serializers.ModelSerializer):
 
 class DisputeSerializer(serializers.ModelSerializer):
     arbitrator = UserSerializer(read_only=True)
+    order = serializers.SerializerMethodField()
     
     class Meta:
         model = Dispute
         fields = ['id', 'order', 'reason', 'resolved', 'result', 'arbitrator', 'created_at']
-        read_only_fields = ['created_at', 'resolved', 'result', 'arbitrator'] 
+        read_only_fields = ['created_at', 'resolved', 'result', 'arbitrator']
+    
+    def get_order(self, obj):
+        return {
+            'id': obj.order.id,
+            'title': obj.order.title or 'Без названия',
+            'client': {
+                'id': obj.order.client.id,
+                'username': obj.order.client.username
+            },
+            'expert': {
+                'id': obj.order.expert.id,
+                'username': obj.order.expert.username
+            } if obj.order.expert else None
+        } 

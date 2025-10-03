@@ -238,4 +238,47 @@ class NotificationService:
                    f"по заказу '{order.title or 'Без названия'}'",
             related_object_id=order.id,
             related_object_type='order'
-        ) 
+        )
+
+    @staticmethod
+    def notify_dispute_created(dispute):
+        """Уведомляет администраторов о создании нового спора"""
+        admins = User.objects.filter(role='admin')
+        for admin in admins:
+            NotificationService.create_notification(
+                recipient=admin,
+                type=NotificationType.NEW_CONTACT,  # Используем существующий тип
+                title="Создан новый спор",
+                message=f"Клиент {dispute.order.client.username} создал спор по заказу '{dispute.order.title or 'Без названия'}'. Причина: {dispute.reason[:100]}...",
+                related_object_id=dispute.id,
+                related_object_type='dispute',
+                expires_in=timedelta(days=7)
+            )
+
+    @staticmethod
+    def notify_arbitrator_assigned(dispute):
+        """Уведомляет арбитра о назначении на спор"""
+        if dispute.arbitrator:
+            NotificationService.create_notification(
+                recipient=dispute.arbitrator,
+                type=NotificationType.NEW_ORDER,  # Используем существующий тип
+                title="Назначен на рассмотрение спора",
+                message=f"Вам назначен спор по заказу '{dispute.order.title or 'Без названия'}'. Причина спора: {dispute.reason[:100]}...",
+                related_object_id=dispute.id,
+                related_object_type='dispute',
+                expires_in=timedelta(days=3)
+            )
+
+    @staticmethod
+    def notify_dispute_resolved(dispute):
+        """Уведомляет участников о решении спора"""
+        recipients = [dispute.order.client, dispute.order.expert]
+        for recipient in filter(None, recipients):
+            NotificationService.create_notification(
+                recipient=recipient,
+                type=NotificationType.ORDER_COMPLETED,  # Используем существующий тип
+                title="Спор решен",
+                message=f"Спор по заказу '{dispute.order.title or 'Без названия'}' решен арбитром. Решение: {dispute.result[:100]}...",
+                related_object_id=dispute.id,
+                related_object_type='dispute'
+            ) 

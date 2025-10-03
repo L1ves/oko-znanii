@@ -262,6 +262,59 @@ class OrderViewSet(viewsets.ModelViewSet):
         
         return Response(OrderSerializer(order).data)
 
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def create_dispute(self, request, pk=None):
+        """Создание спора клиентом по заказу"""
+        order = self.get_object()
+        user = request.user
+        
+        # Проверяем права
+        if user.role != 'client' or order.client != user:
+            return Response(
+                {'error': 'Только клиент может создать спор по своему заказу'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Проверяем, что заказ в подходящем статусе
+        if order.status not in ['completed', 'review']:
+            return Response(
+                {'error': 'Спор можно создать только для завершенных заказов или заказов на проверке'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Проверяем, что спор еще не создан
+        if hasattr(order, 'dispute'):
+            return Response(
+                {'error': 'Спор по этому заказу уже существует'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        reason = request.data.get('reason', '').strip()
+        if not reason:
+            return Response(
+                {'error': 'Укажите причину спора'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if len(reason) < 10:
+            return Response(
+                {'error': 'Причина спора должна содержать минимум 10 символов'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Создаем спор
+        dispute = Dispute.objects.create(
+            order=order,
+            reason=reason
+        )
+        
+        # Отправляем уведомление администраторам
+        from apps.notifications.services import NotificationService
+        NotificationService.notify_dispute_created(dispute)
+        
+        serializer = DisputeSerializer(dispute)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
@@ -280,25 +333,101 @@ class DisputeViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:
+        if user.is_staff or getattr(user, 'role', None) == 'admin':
             return Dispute.objects.all()
         return Dispute.objects.filter(order__client=user)
 
     @action(detail=True, methods=['post'])
     def resolve(self, request, pk=None):
         dispute = self.get_object()
-        if not request.user.is_staff:
+        user = request.user
+        
+        # Проверяем права: админ или назначенный арбитр
+        is_admin = user.is_staff or getattr(user, 'role', None) == 'admin'
+        is_assigned_arbitrator = dispute.arbitrator == user
+        
+        if not (is_admin or is_assigned_arbitrator):
             return Response(
-                {"error": "Only staff can resolve disputes"},
+                {"error": "Только администратор или назначенный арбитр может решить спор"},
                 status=status.HTTP_403_FORBIDDEN
             )
         
         dispute.resolved = True
-        dispute.arbitrator = request.user
+        # Не перезаписываем арбитра, если он уже назначен
+        if not dispute.arbitrator:
+            dispute.arbitrator = request.user
         dispute.result = request.data.get('result', '')
         dispute.save()
         
+        # Уведомляем участников о решении спора
+        from apps.notifications.services import NotificationService
+        NotificationService.notify_dispute_resolved(dispute)
+        
         return Response(DisputeSerializer(dispute).data)
+
+    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def assign_arbitrator(self, request, pk=None):
+        """Назначение арбитра на спор (только для админов)"""
+        dispute = self.get_object()
+        user = request.user
+        
+        if user.role != 'admin':
+            return Response(
+                {'error': 'Только администратор может назначать арбитров'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        arbitrator_id = request.data.get('arbitrator_id')
+        if not arbitrator_id:
+            return Response(
+                {'error': 'Укажите ID арбитра'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            from apps.users.models import User
+            arbitrator = User.objects.get(id=arbitrator_id, role='arbitrator')
+        except User.DoesNotExist:
+            return Response(
+                {'error': 'Арбитр не найден'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        dispute.arbitrator = arbitrator
+        dispute.save()
+        
+        # Отправляем уведомление арбитру
+        from apps.notifications.services import NotificationService
+        NotificationService.notify_arbitrator_assigned(dispute)
+        
+        serializer = DisputeSerializer(dispute)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def my_disputes(self, request):
+        """Получить споры для арбитра"""
+        user = request.user
+        
+        if user.role == 'arbitrator':
+            # Споры, назначенные на этого арбитра
+            disputes = Dispute.objects.filter(arbitrator=user, resolved=False)
+        elif user.role == 'admin':
+            # Все нерешенные споры для админа
+            disputes = Dispute.objects.filter(resolved=False)
+        else:
+            return Response(
+                {'error': 'Доступно только для арбитров и администраторов'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Возвращаем в том же формате, что и основной list endpoint
+        serializer = DisputeSerializer(disputes, many=True)
+        return Response({
+            'count': disputes.count(),
+            'next': None,
+            'previous': None,
+            'results': serializer.data
+        })
 
 class OrderFileViewSet(viewsets.ModelViewSet):
     serializer_class = OrderFileSerializer
